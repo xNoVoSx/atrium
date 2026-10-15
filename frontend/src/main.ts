@@ -22,6 +22,47 @@ import { AtriumMediaPage, AtriumSecurityPage } from "./pages/security-media";
 import { AtriumCameraTile } from "./components/camera-tile";
 import { AtriumMediaCard } from "./components/media-card";
 import { AtriumRoomPage } from "./pages/room-page";
+import { AtriumWidgetPage } from "./pages/widget-page";
+import { AtriumSearch } from "./components/search";
+import {
+  AtriumHomeSettings,
+  AtriumNavSettings,
+  AtriumPagesSettings,
+  AtriumUsersSettings,
+} from "./pages/settings-sections";
+import { AtriumWidgetEditor } from "./components/widget-editor";
+import { AtriumWidgetPicker } from "./components/widget-picker";
+import { AtriumDataWidget } from "./widgets/elements/data-widget";
+import {
+  AtriumCamerasWidget,
+  AtriumEntitiesWidget,
+  AtriumGaugeWidget,
+  AtriumGraphWidget,
+  AtriumLinksWidget,
+  AtriumMediaWidget,
+  AtriumNoteWidget,
+  AtriumWebWidget,
+} from "./widgets/elements/generic";
+import {
+  AtriumAlarmWidget,
+  AtriumAppliancesWidget,
+  AtriumCoversWidget,
+  AtriumFansWidget,
+  AtriumLocksWidget,
+  AtriumScriptsWidget,
+  AtriumSwitchesWidget,
+  AtriumTimersWidget,
+  AtriumVacuumWidget,
+} from "./widgets/elements/house";
+import {
+  AtriumCalendarWidget,
+  AtriumClockWidget,
+  AtriumNotificationsWidget,
+  AtriumPersonsWidget,
+  AtriumSunWidget,
+  AtriumTodoWidget,
+  AtriumWeatherWidget,
+} from "./widgets/elements/info";
 import {
   AtriumCategoriesPage,
   AtriumCategoryPage,
@@ -56,6 +97,39 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-categories-page", AtriumCategoriesPage],
   ["atrium-category-page", AtriumCategoryPage],
   ["atrium-settings-page", AtriumSettingsPage],
+  ["atrium-widget-page", AtriumWidgetPage],
+  ["atrium-search", AtriumSearch],
+  ["atrium-home-settings", AtriumHomeSettings],
+  ["atrium-nav-settings", AtriumNavSettings],
+  ["atrium-pages-settings", AtriumPagesSettings],
+  ["atrium-users-settings", AtriumUsersSettings],
+  ["atrium-widget-editor", AtriumWidgetEditor],
+  ["atrium-widget-picker", AtriumWidgetPicker],
+  ["atrium-data-widget", AtriumDataWidget],
+  ["atrium-entities-widget", AtriumEntitiesWidget],
+  ["atrium-graph-widget", AtriumGraphWidget],
+  ["atrium-gauge-widget", AtriumGaugeWidget],
+  ["atrium-note-widget", AtriumNoteWidget],
+  ["atrium-links-widget", AtriumLinksWidget],
+  ["atrium-web-widget", AtriumWebWidget],
+  ["atrium-cameras-widget", AtriumCamerasWidget],
+  ["atrium-media-widget", AtriumMediaWidget],
+  ["atrium-covers-widget", AtriumCoversWidget],
+  ["atrium-fans-widget", AtriumFansWidget],
+  ["atrium-vacuum-widget", AtriumVacuumWidget],
+  ["atrium-locks-widget", AtriumLocksWidget],
+  ["atrium-alarm-widget", AtriumAlarmWidget],
+  ["atrium-appliances-widget", AtriumAppliancesWidget],
+  ["atrium-timers-widget", AtriumTimersWidget],
+  ["atrium-switches-widget", AtriumSwitchesWidget],
+  ["atrium-scripts-widget", AtriumScriptsWidget],
+  ["atrium-weather-widget", AtriumWeatherWidget],
+  ["atrium-calendar-widget", AtriumCalendarWidget],
+  ["atrium-todo-widget", AtriumTodoWidget],
+  ["atrium-persons-widget", AtriumPersonsWidget],
+  ["atrium-clock-widget", AtriumClockWidget],
+  ["atrium-sun-widget", AtriumSunWidget],
+  ["atrium-notifications-widget", AtriumNotificationsWidget],
   ["atrium-panel", AtriumPanel],
 ];
 

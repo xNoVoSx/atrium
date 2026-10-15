@@ -262,9 +262,13 @@ export const plantStyle = (page, cssText) =>
     ({ findPanel, cssText }) => {
       const panel = eval(findPanel);
       // Plant into the header module (deepest common place with text).
-      const root = panel.shadowRoot
-        .querySelector("atrium-home-page")
-        .shadowRoot.querySelector("atrium-header-module").shadowRoot;
+      const deep = (r, sel) => {
+        const hit = r.querySelector(sel);
+        if (hit) return hit;
+        for (const el of r.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+        return null;
+      };
+      const root = deep(panel.shadowRoot, "atrium-header-module").shadowRoot;
       root.getElementById("e2e-planted")?.remove();
       if (!cssText) return;
       const style = document.createElement("style");

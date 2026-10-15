@@ -4,15 +4,21 @@ import type { AtriumSheet } from "./components/sheet";
 import type { PanelContext } from "./context";
 import { EntityStore } from "./data/entity-store";
 import { isAutoVisible } from "./data/registry";
-import { hiddenAreas, hiddenEntities, setEntityHidden, toggleFavorite } from "./data/layout";
+import { categoryInfo } from "./data/categories";
+import { rooms } from "./data/home";
+import { hiddenAreas, hiddenEntities, savedOrder, setEntityHidden, toggleFavorite } from "./data/layout";
+import { userLevel } from "./data/levels";
+import { navMatches, navRoute, railMode, visibleNav, CATEGORIES, type NavItem } from "./data/nav";
+import { page as pageConfig } from "./data/pages";
 import { saveLayout, saveUserSettings, subscribeSettings, type AtriumSettings } from "./data/settings";
 import { VersionWatch, loadedHash } from "./data/version-watch";
-import { translator, type MessageKey } from "./i18n";
-import { navSection, navigate as navigateTo, parseRoute, type PageRoute } from "./router";
+import { translator } from "./i18n";
+import { navigate as navigateTo, parseRoute, type PageRoute } from "./router";
 import { ICONS } from "./theme/shared";
 import { tokens, type ThemePreference } from "./theme/tokens";
 import type { HomeAssistant, PanelInfo, Route } from "./types/hass";
 import { reportClient } from "./util/diagnostics";
+import { WI } from "./widgets/icons";
 import { PULL_THRESHOLD_PX, attachPullRefresh } from "./util/pull-refresh";
 
 export const VERSION = __ATRIUM_VERSION__;
@@ -29,13 +35,22 @@ function readThemePreference(): ThemePreference {
   }
 }
 
-type NavId = "home" | "rooms" | "categories" | "settings";
-const NAV: Array<{ id: NavId; route: PageRoute; label: MessageKey; icon: string }> = [
-  { id: "home", route: { page: "home" }, label: "nav.home", icon: ICONS.home },
-  { id: "rooms", route: { page: "rooms" }, label: "nav.rooms", icon: ICONS.rooms },
-  { id: "categories", route: { page: "categories" }, label: "nav.categories", icon: ICONS.categories },
-  { id: "settings", route: { page: "settings" }, label: "nav.settings", icon: ICONS.settings },
-];
+const SEARCH_ICON = "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4";
+const MORE_ICON = "M5 12h.01M12 12h.01M19 12h.01";
+
+/** One resolved navigation entry, ready to draw. */
+interface NavEntry {
+  key: string;
+  kind: NavItem["kind"];
+  label: string;
+  /** SVG path or "mdi:…". */
+  icon: string;
+  route: PageRoute | null;
+  url?: string;
+  active: boolean;
+  bottom: boolean;
+  item: NavItem;
+}
 
 /** The panel Home Assistant mounts in the sidebar: navigation, pages, shared control. */
 export class AtriumPanel extends LitElement {
@@ -50,6 +65,9 @@ export class AtriumPanel extends LitElement {
     _controlId: { state: true },
     _user: { state: true },
     _editing: { state: true },
+    _more: { state: true },
+    _search: { state: true },
+    _reducedMotion: { state: true },
   };
 
   declare narrow: boolean;
@@ -62,6 +80,10 @@ export class AtriumPanel extends LitElement {
   declare _controlId: string | null;
   declare _user: Record<string, unknown>;
   declare _editing: boolean;
+  /** Phone: the sheet with all navigation entries. */
+  declare _more: boolean;
+  declare _search: boolean;
+  declare _reducedMotion: boolean;
 
   readonly store = new EntityStore();
   #hass: HomeAssistant | undefined;
@@ -84,6 +106,9 @@ export class AtriumPanel extends LitElement {
     this._controlId = null;
     this._user = {};
     this._editing = false;
+    this._more = false;
+    this._search = false;
+    this._reducedMotion = false;
   }
 
   get hass(): HomeAssistant | undefined {
@@ -114,6 +139,11 @@ export class AtriumPanel extends LitElement {
     // Attributes may not be set in a custom element's constructor.
     this.dataset.version = VERSION;
     if (this.#hass && !this.#connected) this.#connect();
+    this.#motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    this._reducedMotion = Boolean(this.#motionQuery?.matches);
+    this.#motionQuery?.addEventListener?.("change", this.#onMotion);
+    // Capture: Home Assistant's own quick search also listens for Ctrl+K.
+    window.addEventListener("keydown", this.#onKey, { capture: true });
     this.#detachPull = attachPullRefresh({
       target: this,
       scrollTop: () => document.scrollingElement?.scrollTop ?? 0,
@@ -129,8 +159,22 @@ export class AtriumPanel extends LitElement {
     void this.#unsubSettings?.then((unsub) => unsub()).catch(() => undefined);
     this.#unsubSettings = undefined;
     this.#detachPull?.();
+    this.#motionQuery?.removeEventListener?.("change", this.#onMotion);
+    window.removeEventListener("keydown", this.#onKey, { capture: true });
     this.#connected = false;
   }
+
+  #motionQuery: MediaQueryList | undefined;
+  #onMotion = (ev: MediaQueryListEvent) => (this._reducedMotion = ev.matches);
+
+  // Ctrl/Cmd+K opens the search, Escape closes it.
+  #onKey = (ev: KeyboardEvent) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      this._search = true;
+    }
+  };
 
   /** Subscriptions that need both a connection and the DOM. */
   #connect(): void {
@@ -254,12 +298,20 @@ export class AtriumPanel extends LitElement {
     const hidden = hiddenEntities(this._layout);
     // In edit mode hidden things stay visible (dimmed) so they can come back.
     this.store.setHidden(hidden, hiddenAreas(this._layout), !this._editing);
+    const level = userLevel(this._layout, this._user, hass?.user?.id, Boolean(hass?.user?.is_admin));
+    this.setAttribute("level", level);
+    const motionOff = this._reducedMotion || this._user.motion === "off";
+    // Entry effects become instant and loops run once, i.e. everything stands still.
+    this.style.setProperty("--a-motion", motionOff ? "0.001" : "1");
+    this.style.setProperty("--a-iter", motionOff ? "1" : "infinite");
     this.#ctx = {
       store: this.store,
       t: translator(hass?.language),
       locale: hass?.locale?.language ?? hass?.language ?? "en",
       narrow: this.narrow,
       isAdmin: Boolean(hass?.user?.is_admin),
+      userId: hass?.user?.id ?? "",
+      level,
       layout: this._layout,
       user: this._user,
       editing: this._editing,
@@ -282,6 +334,8 @@ export class AtriumPanel extends LitElement {
         return html`<atrium-categories-page .ctx=${ctx}></atrium-categories-page>`;
       case "category":
         return html`<atrium-category-page .ctx=${ctx} .category=${route.category}></atrium-category-page>`;
+      case "page":
+        return html`<atrium-widget-page .ctx=${ctx} .pageId=${route.pageId}></atrium-widget-page>`;
       case "settings":
         return html`<atrium-settings-page
           .ctx=${ctx}
@@ -292,38 +346,213 @@ export class AtriumPanel extends LitElement {
     }
   }
 
-  #renderNav(active: NavId, ctx: PanelContext) {
-    // Settings are open to everyone (appearance is per device); admin-only parts live inside.
-    const items = NAV;
-    return html`<nav class=${this.narrow ? "bottom" : "rail"} aria-label="Atrium">
-      ${this.narrow ? nothing : html`<div class="brand"><span class="logo">A</span><span>Atrium</span></div>`}
-      ${
-        this.narrow
-          ? html`<button
-              type="button"
-              data-nav="menu"
-              @click=${() =>
-                this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }))}
-            >
-              ${icon(MENU_ICON, 22)}<span>${ctx.t("menu.open")}</span>
-            </button>`
-          : nothing
+  /** The stored navigation resolved for this user: labels, icons, routes, expanded groups. */
+  #navEntries(route: PageRoute, ctx: PanelContext): NavEntry[] {
+    const hass = this.store.hass;
+    const entries: NavEntry[] = [];
+    const base = (
+      item: NavItem,
+      key: string,
+      label: string,
+      icon: string,
+      r: PageRoute | null,
+      url?: string,
+    ): NavEntry => ({
+      key,
+      kind: item.kind,
+      label: item.label || label,
+      icon: item.icon || icon,
+      route: r,
+      ...(url ? { url } : {}),
+      active: r
+        ? navMatches({ ...item, ...(r.page === "room" ? { kind: "room", areaId: r.areaId } : {}) }, route)
+        : false,
+      bottom: Boolean(item.bottom),
+      item,
+    });
+    for (const item of visibleNav(this._layout, ctx.level)) {
+      switch (item.kind) {
+        case "home":
+          entries.push(base(item, item.id, ctx.t("nav.home"), ICONS.home, navRoute(item)));
+          break;
+        case "rooms":
+          entries.push(base(item, item.id, ctx.t("nav.rooms"), ICONS.rooms, navRoute(item)));
+          break;
+        case "categories":
+          entries.push(base(item, item.id, ctx.t("nav.categories"), ICONS.categories, navRoute(item)));
+          break;
+        case "settings":
+          entries.push(base(item, item.id, ctx.t("nav.settings"), ICONS.settings, navRoute(item)));
+          break;
+        case "search":
+          entries.push(base(item, item.id, ctx.t("nav.search"), SEARCH_ICON, null));
+          break;
+        case "room": {
+          const area = item.areaId ? hass?.areas[item.areaId] : undefined;
+          if (area) entries.push(base(item, item.id, area.name, area.icon ?? ICONS.rooms, navRoute(item)));
+          break;
+        }
+        case "category": {
+          const info = categoryInfo(item.category ?? "");
+          if (info) entries.push(base(item, item.id, ctx.t(info.title), info.icon, navRoute(item)));
+          break;
+        }
+        case "page": {
+          const cfg = pageConfig(this._layout, item.pageId ?? "");
+          if (cfg)
+            entries.push(base(item, item.id, cfg.title ?? cfg.id, cfg.icon ?? WI.note, navRoute(item)));
+          break;
+        }
+        case "link":
+          if (item.url) entries.push(base(item, item.id, item.url, WI.link, null, item.url));
+          break;
+        case "heading":
+          entries.push(base(item, item.id, item.label ?? "", "", null));
+          break;
+        case "divider":
+          entries.push(base(item, item.id, "", "", null));
+          break;
+        case "all-rooms":
+          if (hass)
+            for (const r of rooms(hass, savedOrder(this._layout, "rooms"))) {
+              const area = hass.areas[r.areaId];
+              const roomRoute: PageRoute = { page: "room", areaId: r.areaId };
+              entries.push({
+                ...base(
+                  { ...item, label: "" },
+                  `${item.id}:${r.areaId}`,
+                  r.name,
+                  area?.icon ?? ICONS.rooms,
+                  roomRoute,
+                ),
+                active: route.page === "room" && route.areaId === r.areaId,
+              });
+            }
+          break;
+        case "all-categories":
+          for (const id of CATEGORIES) {
+            const info = categoryInfo(id);
+            if (!info || (info.minLevel === "expert" && ctx.level !== "expert")) continue;
+            const catRoute: PageRoute = { page: "category", category: id };
+            entries.push({
+              ...base({ ...item, label: "" }, `${item.id}:${id}`, ctx.t(info.title), info.icon, catRoute),
+              active: route.page === "category" && route.category === id,
+            });
+          }
+          break;
       }
-      ${items.map(
-        (n) =>
-          html`<a
-            href="/atrium${n.route.page === "home" ? "" : `/${n.route.page}`}"
-            data-nav=${n.id}
-            aria-current=${n.id === active ? "page" : "false"}
-            @click=${(ev: MouseEvent) => {
-              if (ev.metaKey || ev.ctrlKey) return;
-              ev.preventDefault();
-              ctx.navigate(n.route);
-            }}
-            >${icon(n.icon, 22)}<span>${ctx.t(n.label)}</span></a
-          >`,
-      )}
-    </nav>`;
+    }
+    return entries;
+  }
+
+  #navIcon(path: string, size = 22) {
+    if (path.startsWith("mdi:") && customElements.get("ha-icon"))
+      return html`<ha-icon .icon=${path} style="--mdc-icon-size:${size}px"></ha-icon>`;
+    return icon(path.startsWith("mdi:") ? ICONS.rooms : path, size);
+  }
+
+  #go(ev: MouseEvent, entry: NavEntry, ctx: PanelContext): void {
+    if (entry.kind === "search") {
+      ev.preventDefault();
+      this._more = false;
+      this._search = true;
+      return;
+    }
+    if (entry.url) {
+      if (entry.url.startsWith("/") && !ev.metaKey && !ev.ctrlKey) {
+        ev.preventDefault();
+        history.pushState(null, "", entry.url);
+        window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+      }
+      this._more = false;
+      return;
+    }
+    if (!entry.route || ev.metaKey || ev.ctrlKey) return;
+    ev.preventDefault();
+    this._more = false;
+    ctx.navigate(entry.route);
+  }
+
+  #href(entry: NavEntry): string {
+    if (entry.url) return entry.url;
+    if (!entry.route) return "#";
+    const prefix = this.route?.prefix ?? "/atrium";
+    switch (entry.route.page) {
+      case "home":
+        return prefix;
+      case "room":
+        return `${prefix}/room/${encodeURIComponent(entry.route.areaId)}`;
+      case "category":
+        return `${prefix}/category/${encodeURIComponent(entry.route.category)}`;
+      case "page":
+        return `${prefix}/page/${encodeURIComponent(entry.route.pageId)}`;
+      default:
+        return `${prefix}/${entry.route.page}`;
+    }
+  }
+
+  #navLink(entry: NavEntry, ctx: PanelContext) {
+    if (entry.kind === "heading") return html`<div class="nav-heading">${entry.label}</div>`;
+    if (entry.kind === "divider") return html`<hr class="nav-divider" />`;
+    const builtin = ["home", "rooms", "categories", "settings", "search"].includes(entry.kind);
+    return html`<a
+      href=${this.#href(entry)}
+      data-nav=${builtin ? entry.kind : entry.key}
+      target=${entry.url && !entry.url.startsWith("/") ? "_blank" : nothing}
+      rel=${entry.url ? "noopener noreferrer" : nothing}
+      aria-current=${entry.active ? "page" : "false"}
+      title=${entry.label}
+      @click=${(ev: MouseEvent) => this.#go(ev, entry, ctx)}
+      >${this.#navIcon(entry.icon)}<span>${entry.label}</span></a
+    >`;
+  }
+
+  #renderNav(route: PageRoute, ctx: PanelContext) {
+    const entries = this.#navEntries(route, ctx);
+    if (!this.narrow) {
+      const icons = railMode(this._layout) === "icons";
+      return html`<nav class=${icons ? "rail icons" : "rail"} aria-label="Atrium">
+        <div class="brand"><span class="logo">A</span><span>Atrium</span></div>
+        <div class="rail-items">${entries.map((e) => this.#navLink(e, ctx))}</div>
+      </nav>`;
+    }
+    // Phone: the HA menu, up to four chosen entries, and "more" for the rest.
+    const links = entries.filter((e) => e.kind !== "heading" && e.kind !== "divider");
+    const bar = links.filter((e) => e.bottom).slice(0, 4);
+    const rest = entries.filter((e) => !bar.includes(e));
+    // "More" only when something besides the search is left (the search alone is not worth a slot).
+    const restHasLinks = rest.some((e) => !["heading", "divider", "search"].includes(e.kind));
+    const moreActive = rest.some((e) => e.active);
+    return html`<nav class="bottom" aria-label="Atrium">
+        <button
+          type="button"
+          data-nav="menu"
+          @click=${() => this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }))}
+        >
+          ${icon(MENU_ICON, 22)}<span>${ctx.t("menu.open")}</span>
+        </button>
+        ${bar.map((e) => this.#navLink(e, ctx))}
+        ${
+          restHasLinks
+            ? html`<button
+                type="button"
+                data-nav="more"
+                aria-current=${moreActive ? "page" : "false"}
+                @click=${() => (this._more = true)}
+              >
+                ${icon(MORE_ICON, 22, 3)}<span>${ctx.t("nav.more")}</span>
+              </button>`
+            : nothing
+        }
+      </nav>
+      ${
+        this._more
+          ? html`<div class="more-scrim" @click=${() => (this._more = false)}></div>
+              <div class="more" role="dialog" aria-label=${ctx.t("nav.more")}>
+                <div class="more-grid">${rest.map((e) => this.#navLink(e, ctx))}</div>
+              </div>`
+          : nothing
+      }`;
   }
 
   protected override render() {
@@ -344,7 +573,7 @@ export class AtriumPanel extends LitElement {
           : nothing
       }
       <div class="shell">
-        ${this.#renderNav(navSection(route), ctx)}
+        ${this.#renderNav(route, ctx)}
         <main
           @atrium-toggle=${this.#onToggle}
           @atrium-more-info=${this.#onMoreInfo}
@@ -358,9 +587,18 @@ export class AtriumPanel extends LitElement {
               : nothing
           }
           ${this.#renderPage(route, ctx)}
+          ${
+            this._search
+              ? html`<atrium-search
+                  .ctx=${ctx}
+                  @atrium-search-close=${() => (this._search = false)}
+                ></atrium-search>`
+              : nothing
+          }
         </main>
         ${
-          route.page === "home" || route.page === "room"
+          (route.page === "home" || route.page === "room" || route.page === "page") &&
+          (ctx.isAdmin || ctx.level !== "simple")
             ? html`<button
                 type="button"
                 class="edit-toggle ${this._editing ? "active" : ""}"
@@ -503,6 +741,126 @@ export class AtriumPanel extends LitElement {
       }
       nav.rail a[aria-current="page"] {
         background: var(--a-panel2);
+      }
+      nav.rail a span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rail-items {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        scrollbar-width: thin;
+      }
+      .nav-heading {
+        margin: 14px 10px 4px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--a-on-nav);
+        opacity: 0.7;
+      }
+      .nav-divider {
+        border: 0;
+        height: 1px;
+        background: var(--a-nav-line);
+        margin: 8px 10px;
+      }
+      nav.rail.icons {
+        width: 76px;
+        padding: 20px 10px;
+      }
+      nav.rail.icons .brand span:not(.logo),
+      nav.rail.icons a span,
+      nav.rail.icons .nav-heading {
+        display: none;
+      }
+      nav.rail.icons a {
+        justify-content: center;
+        padding: 0;
+      }
+      nav.rail.icons .brand {
+        justify-content: center;
+        padding: 0 0 16px;
+      }
+      nav ha-icon {
+        flex: none;
+        display: flex;
+      }
+      nav a {
+        transition: background-color calc(var(--a-motion, 1) * 150ms);
+      }
+      nav.rail a:hover {
+        background: var(--a-panel2);
+      }
+
+      /* Phone: "more" sheet */
+      .more-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 6;
+        background: var(--a-scrim);
+        animation: fade-in calc(var(--a-motion, 1) * 180ms) ease-out;
+      }
+      .more {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(68px + env(safe-area-inset-bottom));
+        z-index: 7;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: var(--a-nav);
+        border-radius: 16px 16px 0 0;
+        padding: 16px 12px;
+        animation: slide-up calc(var(--a-motion, 1) * 240ms) cubic-bezier(0.2, 0.9, 0.25, 1);
+      }
+      .more-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .more-grid a {
+        min-height: 76px;
+        border-radius: var(--a-radius);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12px;
+        padding: 6px;
+        text-align: center;
+        background: var(--a-panel);
+      }
+      .more-grid a span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        white-space: nowrap;
+      }
+      .more-grid .nav-heading {
+        grid-column: 1 / -1;
+        margin: 8px 4px 0;
+      }
+      .more-grid .nav-divider {
+        grid-column: 1 / -1;
+      }
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes slide-up {
+        from {
+          transform: translateY(40px);
+          opacity: 0;
+        }
       }
 
       /* Edit mode */

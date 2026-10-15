@@ -2,6 +2,7 @@
 // language, layout or screen size change, so components can compare by identity.
 
 import type { EntityStore } from "./data/entity-store";
+import type { Level } from "./data/levels";
 import type { Translate } from "./i18n";
 import type { PageRoute } from "./router";
 
@@ -11,6 +12,10 @@ export interface PanelContext {
   locale: string;
   narrow: boolean;
   isAdmin: boolean;
+  /** Current user's id (empty while unknown). */
+  userId: string;
+  /** How much this user sees (simple, standard, expert). */
+  level: Level;
   /** Shared layout settings (admin overrides of the automatic layout). */
   layout: Record<string, unknown>;
   /** The current user's own settings (favourites). */

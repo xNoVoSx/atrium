@@ -19,6 +19,8 @@ export interface SortableOptions {
   onPreview: (ids: string[]) => void;
   /** Final order after the drop (not called when nothing moved). */
   onDrop: (ids: string[]) => void;
+  /** Only start a drag on an element with this class (e.g. a grip), not anywhere on the item. */
+  handle?: string;
 }
 
 interface Drag {
@@ -69,6 +71,11 @@ export function attachSortable(root: HTMLElement | ShadowRoot, opts: SortableOpt
 
   const onDown = (ev: PointerEvent) => {
     if (!opts.enabled() || ev.button !== 0 || onEditButton(ev)) return;
+    if (
+      opts.handle &&
+      !ev.composedPath().some((n) => n instanceof Element && n.classList.contains(opts.handle ?? ""))
+    )
+      return;
     const el = itemOf(ev);
     const container = opts.container();
     if (!el || !container || !el.dataset.sortId) return;
@@ -149,7 +156,9 @@ export function attachSortable(root: HTMLElement | ShadowRoot, opts: SortableOpt
     const onAction = ev
       .composedPath()
       .some((n) => n instanceof HTMLElement && n.classList.contains("edit-action"));
-    if (opts.enabled() && !onAction) {
+    const container = opts.container();
+    const inside = container ? ev.composedPath().includes(container) : false;
+    if (opts.enabled() && inside && !onAction) {
       ev.stopPropagation();
       ev.preventDefault();
     }

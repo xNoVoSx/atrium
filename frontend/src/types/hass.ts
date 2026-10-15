@@ -74,6 +74,14 @@ export interface HomeAssistant {
     target?: Record<string, unknown>,
   ): Promise<unknown>;
   callWS<T>(msg: MessageBase): Promise<T>;
+  /** REST call relative to /api/, with the frontend's auth. */
+  callApi?<T>(
+    method: "GET" | "POST" | "DELETE",
+    path: string,
+    parameters?: Record<string, unknown>,
+  ): Promise<T>;
+  /** Signed or auth-adding URL for images and media, where the frontend offers it. */
+  hassUrl?(path?: string): string;
 }
 
 export interface PanelInfo {

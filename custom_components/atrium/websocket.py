@@ -25,6 +25,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_set_layout)
     websocket_api.async_register_command(hass, ws_settings_set_user)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
+    websocket_api.async_register_command(hass, ws_users)
 
 
 def _data(hass: HomeAssistant) -> AtriumData | None:
@@ -117,3 +118,21 @@ def ws_settings_subscribe(
     )
     connection.send_result(msg["id"])
     connection.send_event(msg["id"], _settings_payload(data, user_id))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "atrium/users"})
+@websocket_api.async_response
+async def ws_users(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """People who can log in, for assigning view levels (admins only)."""
+    users = await hass.auth.async_get_users()
+    connection.send_result(
+        msg["id"],
+        [
+            {"id": user.id, "name": user.name or "", "is_admin": user.is_admin}
+            for user in users
+            if not user.system_generated and user.is_active
+        ],
+    )

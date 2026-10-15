@@ -10,11 +10,14 @@ const DRAG_CLOSE_PX = 120;
 export class AtriumSheet extends LitElement {
   static override properties = {
     mode: { reflect: true },
+    wide: { type: Boolean, reflect: true },
     open: { type: Boolean, reflect: true },
     label: {},
   };
 
   declare mode: "sheet" | "dialog";
+  /** Dialog mode: room for catalogues and forms. */
+  declare wide: boolean;
   declare open: boolean;
   /** Accessible name of the dialog. */
   declare label: string;
@@ -26,6 +29,7 @@ export class AtriumSheet extends LitElement {
   constructor() {
     super();
     this.mode = "sheet";
+    this.wide = false;
     this.open = false;
     this.label = "";
   }
@@ -178,6 +182,9 @@ export class AtriumSheet extends LitElement {
       touch-action: auto;
       transform: translate(-50%, -48%) scale(0.97);
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+    :host([mode="dialog"][wide]) .surface {
+      width: min(760px, calc(100vw - 32px));
     }
     :host([mode="dialog"][open]) .surface {
       opacity: 1;

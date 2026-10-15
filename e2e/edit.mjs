@@ -160,6 +160,8 @@ async function main() {
 
     await clickNav(page, "settings");
     await page.waitForTimeout(400);
+    await panelClick(page, '[data-tab="hidden"]');
+    await page.waitForTimeout(300);
     await page.screenshot({ path: `${SHOTS}settings-admin.png`, fullPage: true });
     check("settings list the hidden light", await panelClick(page, `[data-hidden="${cfg.testLight}"] button`));
     const shown = await waitFor(
@@ -169,6 +171,8 @@ async function main() {
     check("'show' brings it back", shown != null);
 
     // Energy settings: change the price.
+    await panelClick(page, '[data-tab="energy"]');
+    await page.waitForTimeout(300);
     const priceSet = await page.evaluate(({ deep }) => {
       const input = eval(deep)(document, 'input[data-energy="price"]');
       if (!input) return false;
@@ -183,11 +187,14 @@ async function main() {
     check("energy price is saved from the settings", priceSet && priceSaved != null);
 
     // Home modules: switch rooms on.
+    await panelClick(page, '[data-tab="home"]');
+    await page.waitForTimeout(300);
     check("rooms module switch exists", await panelClick(page, '[data-module="rooms"] input'));
     const roomsOn = await waitFor(
       async () => {
         const layout = (await ws(page, { type: "atrium/settings/get" })).layout;
-        return layout.home?.hidden && !layout.home.hidden.includes("rooms");
+        const rooms = layout.pages?.home?.widgets.find((w) => w.type === "rooms");
+        return rooms && !rooms.disabled;
       },
       { timeout: 5000 },
     );
@@ -272,6 +279,92 @@ async function main() {
       await page.screenshot({ path: `${SHOTS}edit-room-devices.png`, fullPage: true });
       await panelClick(page, ".edit-toggle");
     }
+
+    // Widgets: add a clock from the catalogue, make it small, then remove it.
+    await clickNav(page, "home");
+    await page.waitForTimeout(400);
+    await panelClick(page, ".edit-toggle");
+    await page.waitForTimeout(300);
+    check("edit mode offers 'add widget'", await panelClick(page, ".add-widget"));
+    await page.waitForTimeout(500);
+    check("catalogue lists the clock", await panelClick(page, '[data-widget="clock"] .add'));
+    const clockSaved = await waitFor(
+      async () => (await ws(page, { type: "atrium/settings/get" })).layout.pages?.home?.widgets.find((w) => w.type === "clock"),
+      { timeout: 5000 },
+    );
+    check("added widget is saved", clockSaved != null);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(500);
+    check(
+      "clock widget renders",
+      Boolean(await page.evaluate((d) => eval(d)(document, "atrium-clock-widget")?.shadowRoot?.querySelector(".time"), deep)),
+    );
+    await page.screenshot({ path: `${SHOTS}edit-widget-added.png` });
+    const clockId = clockSaved && (await ws(page, { type: "atrium/settings/get" })).layout.pages.home.widgets.find((w) => w.type === "clock").id;
+    await panelClick(page, `[data-sort-id="${clockId}"] .tools button[title]`);
+    const resized = await waitFor(
+      async () => (await ws(page, { type: "atrium/settings/get" })).layout.pages.home.widgets.find((w) => w.id === clockId)?.size,
+      { timeout: 5000 },
+    );
+    const newSize = (await ws(page, { type: "atrium/settings/get" })).layout.pages.home.widgets.find((w) => w.id === clockId)?.size;
+    check("size button changes the size", resized != null, String(newSize));
+    await panelClick(page, ".edit-toggle");
+
+    // Navigation: add the office room as its own entry.
+    await clickNav(page, "settings");
+    await page.waitForTimeout(300);
+    await panelClick(page, '[data-tab="nav"]');
+    await page.waitForTimeout(300);
+    await panelClick(page, ".add button.primary");
+    const navSaved = await waitFor(
+      async () => (await ws(page, { type: "atrium/settings/get" })).layout.nav?.items?.some((i) => i.kind === "room"),
+      { timeout: 5000 },
+    );
+    check("menu entry for a room is saved", navSaved != null);
+    await page.waitForTimeout(400);
+    check(
+      "the rail shows the room entry",
+      await page.evaluate((d) => {
+        const panel = eval(d)(document, "atrium-panel");
+        return [...panel.shadowRoot.querySelectorAll("nav.rail a")].some((a) => a.getAttribute("href")?.includes("/room/"));
+      }, deep),
+    );
+
+    // Own page from a template.
+    await panelClick(page, '[data-tab="pages"]');
+    await page.waitForTimeout(300);
+    const typed = await page.evaluate((d) => {
+      const input = eval(d)(document, "atrium-pages-settings")?.shadowRoot.querySelector(".add input");
+      if (!input) return false;
+      input.value = "E2E Info";
+      input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      const select = input.parentElement.querySelector("select");
+      select.value = "info";
+      select.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      return true;
+    }, deep);
+    await page.waitForTimeout(200);
+    check("page form exists", typed);
+    await page.evaluate((d) => eval(d)(document, "atrium-pages-settings")?.shadowRoot.querySelector(".add button.primary")?.click(), deep);
+    const pageSaved = await waitFor(
+      async () => (await ws(page, { type: "atrium/settings/get" })).layout.pages?.["e2e-info"],
+      { timeout: 5000 },
+    );
+    const created = (await ws(page, { type: "atrium/settings/get" })).layout.pages?.["e2e-info"];
+    check("own page is created from a template", pageSaved != null && created?.widgets.length > 0, `${created?.widgets.length} widgets`);
+    await page.waitForTimeout(800);
+    check("browser shows the new page", page.url().endsWith("/atrium/page/e2e-info"));
+    await page.screenshot({ path: `${SHOTS}edit-own-page.png`, fullPage: true });
+
+    // View level: "simple" hides the categories entry.
+    await ws(page, { type: "atrium/settings/set_user", settings: { level: "simple" } });
+    await page.waitForTimeout(800);
+    const navSimple = await page.evaluate((d) => {
+      const panel = eval(d)(document, "atrium-panel");
+      return [...panel.shadowRoot.querySelectorAll("nav [data-nav]")].map((a) => a.dataset.nav);
+    }, deep);
+    check("simple level hides categories", !navSimple.includes("categories") && navSimple.includes("home"), navSimple.join(","));
+    await ws(page, { type: "atrium/settings/set_user", settings: {} });
 
     check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
   } finally {

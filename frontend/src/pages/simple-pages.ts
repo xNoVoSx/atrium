@@ -9,18 +9,20 @@ import { batteries, climateZones, rooms } from "../data/home";
 import {
   hiddenAreas,
   hiddenEntities,
-  homeModuleList,
   moveBy,
-  moveModule,
   savedOrder,
   setAreaHidden,
   setEntityHidden,
-  setModuleEnabled,
   setOrder,
 } from "../data/layout";
 import { groupByArea, nameOf } from "../data/registry";
 import type { MessageKey } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
+import { CATEGORY_INFO } from "../data/categories";
+import { isLevel, levelAllows, levelChoiceAllowed, LEVELS } from "../data/levels";
+import { customPages } from "../data/pages";
+import { WIDGETS } from "../widgets/catalog";
+import { WI } from "../widgets/icons";
 import type { ThemePreference } from "../theme/tokens";
 
 export class AtriumRoomsPage extends LitElement {
@@ -40,25 +42,36 @@ export class AtriumCategoriesPage extends LitElement {
   declare ctx: PanelContext;
 
   protected override render() {
-    const { t, navigate } = this.ctx;
-    const entries: Array<[string, MessageKey, MessageKey]> = [
-      ["light", "section.lights", "categories.lights"],
-      ["climate", "section.heating", "categories.heating"],
-      ["energy", "energy.title", "energy.sub"],
-      ["security", "security.title", "security.sub"],
-      ["media", "media.title", "media.sub"],
-      ["batteries", "categories.batteries", "categories.batteries_sub"],
-    ];
+    const { t, navigate, level } = this.ctx;
     return html`<h1>${t("nav.categories")}</h1>
       <div class="list">
-        ${entries.map(
-          ([id, title, sub]) =>
-            html`<button type="button" @click=${() => navigate({ page: "category", category: id })}>
-              <span class="title">${t(title)}</span><span class="sub">${t(sub)}</span>
+        ${CATEGORY_INFO.filter((c) => levelAllows(level, c.minLevel)).map(
+          (c) =>
+            html`<button
+              type="button"
+              data-category=${c.id}
+              @click=${() => navigate({ page: "category", category: c.id })}
+            >
+              <span class="cico">${icon(c.icon, 24, 1.8)}</span>
+              <span class="title">${t(c.title)}</span><span class="sub">${t(c.sub)}</span>
             </button>`,
         )}
-      </div>
-      <p class="hint">${t("categories.later")}</p>`;
+        ${customPages(this.ctx.layout)
+          .filter((p) => levelAllows(level, p.minLevel))
+          .map(
+            (p) =>
+              html`<button
+                type="button"
+                data-page=${p.id}
+                @click=${() => navigate({ page: "page", pageId: p.id })}
+              >
+                <span class="cico"
+                  >${p.icon && customElements.get("ha-icon") ? html`<ha-icon .icon=${p.icon}></ha-icon>` : icon(WI.note, 24, 1.8)}</span
+                >
+                <span class="title">${p.title ?? p.id}</span><span class="sub">${t("search.page")}</span>
+              </button>`,
+          )}
+      </div>`;
   }
 
   static override styles = [
@@ -81,6 +94,40 @@ export class AtriumCategoriesPage extends LitElement {
         flex-direction: column;
         gap: 4px;
         min-height: 88px;
+        cursor: pointer;
+        transition:
+          transform calc(var(--a-motion, 1) * 150ms) ease,
+          background-color calc(var(--a-motion, 1) * 150ms);
+        animation: in calc(var(--a-motion, 1) * 320ms) cubic-bezier(0.2, 0.9, 0.25, 1) both;
+      }
+      .list button:hover {
+        background: var(--a-s2);
+      }
+      .list button:active {
+        transform: scale(0.98);
+      }
+      .list button:nth-child(2) {
+        animation-delay: calc(var(--a-motion, 1) * 30ms);
+      }
+      .list button:nth-child(3) {
+        animation-delay: calc(var(--a-motion, 1) * 60ms);
+      }
+      .list button:nth-child(4) {
+        animation-delay: calc(var(--a-motion, 1) * 90ms);
+      }
+      .list button:nth-child(5) {
+        animation-delay: calc(var(--a-motion, 1) * 120ms);
+      }
+      .list button:nth-child(6) {
+        animation-delay: calc(var(--a-motion, 1) * 150ms);
+      }
+      .list button:nth-child(n + 7) {
+        animation-delay: calc(var(--a-motion, 1) * 180ms);
+      }
+      .cico {
+        color: var(--a-ocher);
+        margin-bottom: 6px;
+        display: flex;
       }
       .title {
         font-size: 20px;
@@ -90,15 +137,27 @@ export class AtriumCategoriesPage extends LitElement {
         font-size: 13px;
         color: var(--a-text2);
       }
+      @keyframes in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
     `,
   ];
 }
 
 /** A category: everything of one kind, grouped by room. */
 export class AtriumCategoryPage extends LitElement {
-  static override properties = { ctx: { attribute: false }, category: {} };
+  static override properties = { ctx: { attribute: false }, category: {}, _examples: { state: true } };
   declare ctx: PanelContext;
   declare category: string;
+  declare _examples: boolean;
+
+  constructor() {
+    super();
+    this._examples = false;
+  }
 
   #structure = new StructureController(this, () => this.ctx?.store);
   #batteries = new SelectorController(
@@ -148,11 +207,45 @@ export class AtriumCategoryPage extends LitElement {
       </div>`;
   }
 
+  #renderHomelab() {
+    const { t } = this.ctx;
+    const hass = this.ctx.store.hass;
+    const homelab = WIDGETS.filter((w) => w.group === "network" || w.group === "server");
+    const present = hass ? homelab.filter((w) => w.available(hass)) : [];
+    const missing = homelab.filter((w) => !present.includes(w) && w.demo);
+    return html`<h1>${t("categories.homelab")}</h1>
+      <div class="wgrid">
+        ${present.map((w) => html`<div class="s-${w.size}">${w.render(this.ctx, { id: `hl-${w.type}`, type: w.type }, false)}</div>`)}
+      </div>
+      ${
+        missing.length
+          ? html`<button
+                type="button"
+                class="examples"
+                aria-expanded=${String(this._examples)}
+                @click=${() => (this._examples = !this._examples)}
+              >
+                ${this._examples ? t("homelab.hide_examples") : t("homelab.show_examples")}
+                (${missing.length})
+              </button>
+              ${
+                this._examples
+                  ? html`<p class="hint">${t("homelab.examples_hint")}</p>
+                      <div class="wgrid">
+                        ${missing.map((w) => html`<div class="s-${w.size}">${w.render(this.ctx, { id: `hl-${w.type}`, type: w.type }, true)}</div>`)}
+                      </div>`
+                  : nothing
+              }`
+          : nothing
+      }`;
+  }
+
   protected override render() {
     const hass = this.ctx.store.hass;
     if (!hass) return nothing;
     const { t } = this.ctx;
     if (this.category === "batteries") return this.#renderBatteries();
+    if (this.category === "homelab") return this.#renderHomelab();
     if (this.category === "energy") return html`<atrium-energy-page .ctx=${this.ctx}></atrium-energy-page>`;
     if (this.category === "security")
       return html`<atrium-security-page .ctx=${this.ctx}></atrium-security-page>`;
@@ -249,6 +342,37 @@ export class AtriumCategoryPage extends LitElement {
       .low .b-value {
         color: var(--a-terra-text);
       }
+      .wgrid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 18px 20px;
+        align-items: start;
+        grid-auto-flow: row dense;
+      }
+      .wgrid > * {
+        grid-column: span 12;
+        min-width: 0;
+      }
+      @media (min-width: 900px) {
+        .wgrid > .s-m {
+          grid-column: span 6;
+        }
+        .wgrid > .s-s {
+          grid-column: span 4;
+        }
+      }
+      .examples {
+        align-self: flex-start;
+        border: 0;
+        border-radius: var(--a-radius);
+        background: var(--a-s2);
+        color: var(--a-text);
+        min-height: 44px;
+        padding: 0 16px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
     `,
   ];
 }
@@ -258,10 +382,23 @@ export class AtriumSettingsPage extends LitElement {
     ctx: { attribute: false },
     theme: {},
     version: {},
+    _tab: { state: true },
   };
   declare ctx: PanelContext;
   declare theme: ThemePreference;
   declare version: string;
+  declare _tab: string;
+
+  constructor() {
+    super();
+    let saved = "look";
+    try {
+      saved = sessionStorage.getItem("atrium-settings-tab") ?? "look";
+    } catch {
+      // no storage
+    }
+    this._tab = saved;
+  }
 
   #structure = new StructureController(this, () => this.ctx?.store);
 
@@ -289,32 +426,6 @@ export class AtriumSettingsPage extends LitElement {
       >
         ${icon(ICONS.down, 18, 2)}
       </button>`;
-  }
-
-  #renderModules() {
-    const { t, layout, saveLayout } = this.ctx;
-    const modules = homeModuleList(layout);
-    return html`<section>
-      <h2 class="label">${t("settings.home")}</h2>
-      <div class="rows">
-        ${modules.map(
-          (m, i) =>
-            html`<div class="row" data-module=${m.id}>
-              <label class="switch">
-                <input
-                  type="checkbox"
-                  .checked=${m.enabled}
-                  @change=${(ev: Event) =>
-                    saveLayout(setModuleEnabled(layout, m.id, (ev.target as HTMLInputElement).checked))}
-                />
-                <span class="track"></span>
-              </label>
-              <span class="name ${m.enabled ? "" : "off"}">${t(`module.${m.id}` as MessageKey)}</span>
-              ${this.#moveButtons((d) => saveLayout(moveModule(layout, m.id, d)), i === 0, i === modules.length - 1)}
-            </div>`,
-        )}
-      </div>
-    </section>`;
   }
 
   #renderRooms() {
@@ -377,11 +488,17 @@ export class AtriumSettingsPage extends LitElement {
     </section>`;
   }
 
-  protected override render() {
-    const { t, isAdmin } = this.ctx;
+  #tab(): string {
+    return this._tab;
+  }
+
+  #appearance() {
+    const { t, isAdmin, layout, user, saveUser, level } = this.ctx;
     const themes: ThemePreference[] = ["auto", "dark", "light"];
-    return html`<h1>${t("settings.title")}</h1>
-      <section>
+    const ownLevel = isLevel(user.level) ? user.level : null;
+    const canChoose = levelChoiceAllowed(layout) || isAdmin;
+    const motion = user.motion === "off" ? "off" : "on";
+    return html`<section>
         <h2 class="label">${t("theme.label")}</h2>
         <div class="seg" role="group" aria-label=${t("theme.label")}>
           ${themes.map(
@@ -390,23 +507,121 @@ export class AtriumSettingsPage extends LitElement {
                 type="button"
                 data-theme=${pref}
                 aria-pressed=${String(this.theme === pref)}
-                @click=${() =>
-                  this.dispatchEvent(
-                    new CustomEvent("atrium-theme", { detail: pref, bubbles: true, composed: true }),
-                  )}
+                @click=${() => this.dispatchEvent(new CustomEvent("atrium-theme", { detail: pref, bubbles: true, composed: true }))}
               >
                 ${t(`theme.${pref}` as MessageKey)}
               </button>`,
           )}
         </div>
       </section>
+      <section>
+        <h2 class="label">${t("settings.motion")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.motion")}>
+          ${(["on", "off"] as const).map(
+            (m) =>
+              html`<button
+                type="button"
+                data-motion=${m}
+                aria-pressed=${String(motion === m)}
+                @click=${() => {
+                  const next = { ...user };
+                  if (m === "off") next.motion = "off";
+                  else delete next.motion;
+                  saveUser(next);
+                }}
+              >
+                ${t(`settings.motion_${m}` as MessageKey)}
+              </button>`,
+          )}
+        </div>
+        <p class="hint">${t("settings.motion_hint")}</p>
+      </section>
       ${
-        isAdmin
-          ? html`${this.#renderModules()} ${this.#renderRooms()}
-              <atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>
-              ${this.#renderHidden()}`
+        canChoose
+          ? html`<section>
+              <h2 class="label">${t("settings.my_level")}</h2>
+              <div class="seg" role="group" aria-label=${t("settings.my_level")}>
+                <button
+                  type="button"
+                  data-level=""
+                  aria-pressed=${String(!ownLevel)}
+                  @click=${() => {
+                    const next = { ...user };
+                    delete next.level;
+                    saveUser(next);
+                  }}
+                >
+                  ${t("settings.auto")}
+                </button>
+                ${LEVELS.map(
+                  (l) =>
+                    html`<button
+                      type="button"
+                      data-level=${l}
+                      aria-pressed=${String(ownLevel === l)}
+                      @click=${() => saveUser({ ...user, level: l })}
+                    >
+                      ${t(`level.${l}` as MessageKey)}
+                    </button>`,
+                )}
+              </div>
+              <p class="hint">${t(`level.${level}_sub` as MessageKey)}</p>
+            </section>`
+          : nothing
+      }`;
+  }
+
+  protected override render() {
+    const { t, isAdmin } = this.ctx;
+    const tabs: Array<[string, MessageKey]> = isAdmin
+      ? [
+          ["look", "settings.tab_look"],
+          ["home", "settings.tab_home"],
+          ["nav", "settings.tab_nav"],
+          ["pages", "settings.tab_pages"],
+          ["rooms", "settings.tab_rooms"],
+          ["users", "settings.tab_users"],
+          ["energy", "settings.tab_energy"],
+          ["hidden", "settings.tab_hidden"],
+        ]
+      : [];
+    const tab = isAdmin ? this.#tab() : "look";
+    return html`<h1>${t("settings.title")}</h1>
+      ${
+        tabs.length
+          ? html`<div class="tabs" role="tablist">
+              ${tabs.map(
+                ([id, label]) =>
+                  html`<button
+                    type="button"
+                    role="tab"
+                    data-tab=${id}
+                    aria-selected=${String(tab === id)}
+                    @click=${() => {
+                      this._tab = id;
+                      try {
+                        sessionStorage.setItem("atrium-settings-tab", id);
+                      } catch {
+                        // no storage: the tab is not remembered
+                      }
+                    }}
+                  >
+                    ${t(label)}
+                  </button>`,
+              )}
+            </div>`
           : nothing
       }
+      <div class="panel">
+        ${tab === "look" ? this.#appearance() : nothing}
+        ${tab === "home" ? html`<atrium-home-settings .ctx=${this.ctx}></atrium-home-settings>` : nothing}
+        ${tab === "nav" ? html`<atrium-nav-settings .ctx=${this.ctx}></atrium-nav-settings>` : nothing}
+        ${tab === "pages" ? html`<atrium-pages-settings .ctx=${this.ctx}></atrium-pages-settings>` : nothing}
+        ${tab === "rooms" ? this.#renderRooms() : nothing}
+        ${tab === "users" ? html`<atrium-users-settings .ctx=${this.ctx}></atrium-users-settings>` : nothing}
+        ${tab === "energy" ? html`<atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>` : nothing}
+        ${tab === "hidden" ? this.#renderHidden() : nothing}
+      </div>
       <p class="hint">${t("settings.edit_hint")}</p>
       <p class="hint">${t("settings.version")} ${this.version}</p>`;
   }
@@ -419,10 +634,48 @@ export class AtriumSettingsPage extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        max-width: 640px;
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 2px;
+      }
+      .tabs button {
+        flex: none;
+        border: 0;
+        border-radius: 20px;
+        min-height: 40px;
+        padding: 0 16px;
+        background: var(--a-s1);
+        color: var(--a-text2);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color calc(var(--a-motion, 1) * 150ms);
+      }
+      .tabs button[aria-selected="true"] {
+        background: var(--a-text);
+        color: var(--a-bg);
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 860px;
+        animation: tab-in calc(var(--a-motion, 1) * 240ms) ease-out;
+      }
+      @keyframes tab-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
       }
       .seg {
         display: inline-flex;
+        flex-wrap: wrap;
         align-self: flex-start;
         gap: 4px;
         background: var(--a-s1);

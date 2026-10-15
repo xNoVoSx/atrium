@@ -7,7 +7,8 @@ export type PageRoute =
   | { page: "room"; areaId: string }
   | { page: "categories" }
   | { page: "category"; category: string }
-  | { page: "settings" };
+  | { page: "settings" }
+  | { page: "page"; pageId: string };
 
 export type PageName = PageRoute["page"];
 
@@ -24,6 +25,8 @@ export function parseRoute(path: string | undefined): PageRoute {
       return parts[1] ? { page: "category", category: parts[1] } : { page: "categories" };
     case "settings":
       return { page: "settings" };
+    case "page":
+      return parts[1] ? { page: "page", pageId: parts[1] } : { page: "home" };
     default:
       return { page: "home" };
   }
@@ -37,6 +40,8 @@ export function routePath(route: PageRoute): string {
       return `/room/${encodeURIComponent(route.areaId)}`;
     case "category":
       return `/category/${encodeURIComponent(route.category)}`;
+    case "page":
+      return `/page/${encodeURIComponent(route.pageId)}`;
     default:
       return `/${route.page}`;
   }

@@ -106,3 +106,33 @@ async def test_not_loaded(
     msg = await _call(client, 1, {"type": "atrium/info"})
     assert not msg["success"]
     assert msg["error"]["code"] == "not_loaded"
+
+
+async def test_users_list(
+    hass: HomeAssistant,
+    setup_atrium: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    hass_admin_user: Any,
+) -> None:
+    """Admins get the people who can log in, without system users."""
+    client = await hass_ws_client(hass)
+    msg = await _call(client, 1, {"type": "atrium/users"})
+    assert msg["success"]
+    ids = {u["id"] for u in msg["result"]}
+    assert hass_admin_user.id in ids
+    assert all(set(u) == {"id", "name", "is_admin"} for u in msg["result"])
+    system = [u for u in await hass.auth.async_get_users() if u.system_generated]
+    assert not ids & {u.id for u in system}
+
+
+async def test_users_needs_admin(
+    hass: HomeAssistant,
+    setup_atrium: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    hass_read_only_access_token: str,
+) -> None:
+    """Non-admins cannot list users."""
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+    msg = await _call(client, 1, {"type": "atrium/users"})
+    assert not msg["success"]
+    assert msg["error"]["code"] == "unauthorized"

@@ -95,14 +95,20 @@ export class AtriumRoomsModule extends LitElement {
       }
       .rooms {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 8px;
+      }
+      @media (max-width: 600px) {
+        .rooms {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
       :host([large]) .rooms {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       }
       a {
         aspect-ratio: 1;
+        max-height: 180px;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
