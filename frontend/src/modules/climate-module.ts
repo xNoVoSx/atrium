@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import { repeat } from "lit/directives/repeat.js";
 import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
@@ -33,7 +34,12 @@ export class AtriumClimateModule extends LitElement {
       const zones = this.areaId ? all.filter((id) => this.#areaOf(id) === this.areaId) : all;
       return zones.map((id) => {
         const temp = Number(hass.states[id]?.attributes.current_temperature);
-        return { id, label: zoneLabel(hass, id, zones), temp: Number.isNaN(temp) ? null : temp };
+        return {
+          id,
+          label: zoneLabel(hass, id, zones),
+          temp: Number.isNaN(temp) ? null : temp,
+          heating: hass.states[id]?.attributes.hvac_action === "heating",
+        };
       });
     },
   );
@@ -84,13 +90,31 @@ export class AtriumClimateModule extends LitElement {
         <div class="head">
           <div class="label">${t("section.heating")} · ${label}</div>
           <div class="badge ${heating ? "heating" : ""}">
+            ${
+              heating
+                ? html`<svg class="flame" viewBox="0 0 24 24" aria-hidden="true">
+                    <g class="waves">
+                      <path d="M8 6c-1-1.5 1-2.5 0-4M12 6c-1-1.5 1-2.5 0-4M16 6c-1-1.5 1-2.5 0-4" />
+                    </g>
+                    <path
+                      class="fire"
+                      d="M12 22c-3.3 0-6-2.4-6-5.6 0-2.6 1.7-4.2 3-5.4.3 1.4 1 2.3 2 2.8-.3-2.6.8-4.6 2.8-6 .2 2.4 1.4 3.6 2.6 5 .9 1.1 1.6 2.3 1.6 3.8 0 3-2.7 5.4-6 5.4z"
+                    />
+                  </svg>`
+                : nothing
+            }
             ${off ? t("climate.off") : heating ? t("climate.heating") : t("climate.idle")}
           </div>
         </div>
         <div class="main">
           <button class="open" type="button" title=${t("climate.more")} @click=${() => this.#openControl()}>
             <span class="target" aria-live="polite">
-              ${off ? t("climate.off") : formatTemperature(Number.isNaN(target) ? null : target, locale)}
+              ${keyed(
+                `${off}:${target}`,
+                html`<span class="tick"
+                  >${off ? t("climate.off") : formatTemperature(Number.isNaN(target) ? null : target, locale)}</span
+                >`,
+              )}
             </span>
             <span class="sub">
               ${t("climate.target")} · ${t("climate.current")}
@@ -129,7 +153,9 @@ export class AtriumClimateModule extends LitElement {
                       aria-selected=${String(z.id === s.entity_id)}
                       @click=${() => (this._selected = z.id)}
                     >
-                      <span class="zone-name">${z.label}</span>
+                      <span class="zone-name"
+                        >${z.heating ? html`<span class="hot" title=${t("climate.heating")}></span>` : nothing}${z.label}</span
+                      >
                       <span class="zone-temp">${formatTemperature(z.temp, locale)}</span>
                     </button>`,
                 )}
@@ -176,6 +202,77 @@ export class AtriumClimateModule extends LitElement {
       .badge.heating {
         background: var(--a-ocher);
         color: var(--a-on-ocher);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding-left: 6px;
+      }
+      .flame {
+        width: 16px;
+        height: 16px;
+        overflow: visible;
+      }
+      .flame .fire {
+        fill: currentColor;
+        transform-origin: 12px 22px;
+        animation: flicker calc(var(--a-motion, 1) * 1.4s) ease-in-out var(--a-iter, infinite);
+      }
+      .flame .waves {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        animation: rise calc(var(--a-motion, 1) * 1.8s) ease-out var(--a-iter, infinite);
+      }
+      @keyframes flicker {
+        0%,
+        100% {
+          transform: scale(1, 1);
+        }
+        30% {
+          transform: scale(0.94, 1.06) skewX(-2deg);
+        }
+        60% {
+          transform: scale(1.04, 0.95) skewX(2deg);
+        }
+      }
+      @keyframes rise {
+        from {
+          transform: translateY(4px);
+          opacity: 0;
+        }
+        40% {
+          opacity: 0.9;
+        }
+        to {
+          transform: translateY(-3px);
+          opacity: 0;
+        }
+      }
+      .tick {
+        display: inline-block;
+        animation: tick calc(var(--a-motion, 1) * 380ms) cubic-bezier(0.2, 0.9, 0.25, 1);
+      }
+      @keyframes tick {
+        from {
+          transform: translateY(10px);
+          opacity: 0.3;
+        }
+      }
+      .hot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 4px;
+        background: var(--a-ocher);
+        margin-right: 6px;
+        vertical-align: middle;
+        animation: hot calc(var(--a-motion, 1) * 1.8s) ease-in-out var(--a-iter, infinite);
+      }
+      @keyframes hot {
+        50% {
+          opacity: 0.35;
+        }
       }
       .main {
         display: flex;

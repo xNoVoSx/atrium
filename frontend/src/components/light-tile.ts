@@ -14,7 +14,11 @@ const BULB = html`<svg
   stroke-linejoin="round"
   aria-hidden="true"
 >
-  <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z" />
+  <path
+    class="glass"
+    d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"
+  />
+  <g class="rays"><path d="M12 0.2v1M3.4 3.4l.8.8M20.6 3.4l-.8.8M1 10h1M22 10h1" /></g>
 </svg>`;
 
 /** A light as a style-C tile: tap toggles, long press asks for the control. */
@@ -107,11 +111,13 @@ export class AtriumLightTile extends LitElement {
         class="tile ${on ? "on" : s.state === "unavailable" ? "unavailable" : ""}"
         aria-pressed=${String(on)}
       >
+        <span class="wash"></span>
         ${BULB}
         <span class="text">
           <span class="name">${withoutArea(friendlyName(s), this.areaName)}</span>
           <span class="state">${this.#stateLabel()}</span>
         </span>
+        ${on && brightnessPct(s) != null ? html`<span class="level" style="width:${brightnessPct(s)}%"></span>` : nothing}
       </button>
       ${editOverlay(
         this,
@@ -146,9 +152,8 @@ export class AtriumLightTile extends LitElement {
         color: var(--a-text);
         font-family: var(--a-font);
         transition:
-          background-color 220ms ease,
-          color 220ms ease,
-          transform 120ms ease;
+          color calc(var(--a-motion, 1) * 220ms) ease,
+          transform calc(var(--a-motion, 1) * 120ms) ease;
         touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
@@ -158,10 +163,69 @@ export class AtriumLightTile extends LitElement {
         outline: 2px solid var(--a-ocher);
         outline-offset: 2px;
       }
-      button.tile.on {
+      button.tile {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+      /* Switching on: the colour spreads from the bulb across the tile. */
+      .wash {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
         background: var(--a-ocher);
+        clip-path: circle(0% at 32px 32px);
+        transition: clip-path calc(var(--a-motion, 1) * 480ms) cubic-bezier(0.3, 0.7, 0.2, 1);
+      }
+      :host([compact]) .wash {
+        clip-path: circle(0% at 27px 50%);
+      }
+      button.tile.on {
         color: var(--a-on-ocher);
         box-shadow: none;
+        /* The solid colour follows once the wash has spread (keeps contrast checks and old browsers right). */
+        background: var(--a-ocher);
+        transition:
+          color calc(var(--a-motion, 1) * 220ms) ease,
+          transform calc(var(--a-motion, 1) * 120ms) ease,
+          background-color 0s linear calc(var(--a-motion, 1) * 480ms);
+      }
+      button.tile.on .wash {
+        clip-path: circle(150% at 32px 32px);
+      }
+      :host([compact]) button.tile.on .wash {
+        clip-path: circle(150% at 27px 50%);
+      }
+      svg {
+        overflow: visible;
+      }
+      .rays {
+        opacity: 0;
+        transform-origin: 12px 10px;
+        transform: scale(0.6);
+        transition:
+          opacity calc(var(--a-motion, 1) * 200ms) ease,
+          transform calc(var(--a-motion, 1) * 450ms) cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+      .on .rays {
+        opacity: 1;
+        transform: none;
+        transition-delay: calc(var(--a-motion, 1) * 120ms);
+      }
+      .on .glass {
+        fill: currentColor;
+        fill-opacity: 0.18;
+      }
+      /* Brightness as a thin line at the bottom. */
+      .level {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 3px;
+        background: var(--a-on-ocher);
+        opacity: 0.28;
+        border-radius: 0 2px 2px 0;
+        transition: width calc(var(--a-motion, 1) * 500ms) cubic-bezier(0.2, 0.9, 0.25, 1);
       }
       button.tile.unavailable {
         opacity: 0.45;

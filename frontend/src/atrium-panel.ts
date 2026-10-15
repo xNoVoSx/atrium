@@ -555,6 +555,26 @@ export class AtriumPanel extends LitElement {
       }`;
   }
 
+  #lastPath: string | undefined;
+
+  // A short fade and lift when the page changes (rooms animate their own swipe).
+  protected override updated(): void {
+    const path = this.route?.path ?? "/";
+    if (this.#lastPath !== undefined && path !== this.#lastPath && !path.startsWith("/room/")) {
+      const motionOff = this._reducedMotion || this._user.motion === "off";
+      const page = this.renderRoot.querySelector("main > :not(.edit-hint)");
+      if (!motionOff)
+        page?.animate(
+          [
+            { opacity: 0, transform: "translateY(8px)" },
+            { opacity: 1, transform: "none" },
+          ],
+          { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" },
+        );
+    }
+    this.#lastPath = path;
+  }
+
   protected override render() {
     const ctx = this.#ctx;
     if (!ctx) return nothing;

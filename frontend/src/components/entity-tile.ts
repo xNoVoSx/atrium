@@ -181,6 +181,14 @@ export class AtriumEntityTile extends LitElement {
         color: var(--a-on-ocher);
         box-shadow: none;
       }
+      button.tile.on svg {
+        animation: pop calc(var(--a-motion, 1) * 380ms) cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+      @keyframes pop {
+        from {
+          transform: scale(0.7);
+        }
+      }
       button.tile.media {
         background: var(--a-slate);
         color: #fff;

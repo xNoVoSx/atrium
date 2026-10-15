@@ -79,6 +79,12 @@ async function main() {
   const p = desk.page;
   if (!only || only === "desk") {
     await shot(p, "desk-home");
+    const help = p.locator("atrium-scenes-module button.help");
+    if (await help.count()) {
+      await help.click();
+      await shot(p, "desk-scenes-help");
+      await help.click();
+    }
     await go(p, "/atrium/category/homelab");
     await shot(p, "desk-homelab");
     await click(p, "button.examples");
