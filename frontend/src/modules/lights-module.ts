@@ -14,11 +14,13 @@ export class AtriumLightsModule extends LitElement {
     ctx: { attribute: false },
     areaId: { attribute: "area-id" },
     heading: { type: Boolean },
+    compact: { type: Boolean },
   };
 
   declare ctx: PanelContext;
   declare areaId: string | undefined;
   declare heading: boolean;
+  declare compact: boolean;
 
   // Only the list of ids: tiles update themselves on state changes.
   #ids = new SelectorController(
@@ -30,6 +32,7 @@ export class AtriumLightsModule extends LitElement {
   constructor() {
     super();
     this.heading = true;
+    this.compact = false;
   }
 
   protected override willUpdate(): void {
@@ -42,11 +45,17 @@ export class AtriumLightsModule extends LitElement {
     const { store, t } = this.ctx;
     return html`
       ${this.heading ? html`<h2 class="label">${t("section.lights")}</h2>` : nothing}
-      <div class="grid">
+      <div class="grid ${this.compact ? "compact" : ""}">
         ${repeat(
           ids,
           (id) => id,
-          (id) => html`<atrium-light-tile .entityId=${id} .store=${store} .t=${t}></atrium-light-tile>`,
+          (id) =>
+            html`<atrium-light-tile
+              ?compact=${this.compact}
+              .entityId=${id}
+              .store=${store}
+              .t=${t}
+            ></atrium-light-tile>`,
         )}
       </div>
     `;
@@ -59,6 +68,15 @@ export class AtriumLightsModule extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      .grid.compact {
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 8px;
+      }
+      @media (max-width: 600px) {
+        .grid.compact {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     `,
   ];

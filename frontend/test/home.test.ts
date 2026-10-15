@@ -110,19 +110,11 @@ describe("scenes", () => {
 });
 
 describe("layout", () => {
-  it("uses the default order without settings", () => {
-    expect(homeModules(undefined)).toEqual([
-      "header",
-      "status",
-      "climate",
-      "lights",
-      "scenes",
-      "waste",
-      "rooms",
-    ]);
+  it("shows a calm home page by default", () => {
+    expect(homeModules(undefined)).toEqual(["header", "status", "climate", "lights"]);
   });
 
-  it("applies order and hidden modules, keeping unknown ones out and new ones in", () => {
+  it("applies order and hidden modules, ignoring unknown ids", () => {
     expect(homeModules({ home: { order: ["rooms", "nope", "header"], hidden: ["scenes"] } })).toEqual([
       "rooms",
       "header",

@@ -20,11 +20,14 @@ const BULB = html`<svg
 export class AtriumLightTile extends LitElement {
   static override properties = {
     entityId: { attribute: "entity-id", reflect: true },
+    compact: { type: Boolean, reflect: true },
     store: { attribute: false },
     t: { attribute: false },
   };
 
   declare entityId: string;
+  /** One row (icon, name, state) instead of a square. */
+  declare compact: boolean;
   declare store: EntityStore | undefined;
   declare t: Translate;
 
@@ -165,6 +168,27 @@ export class AtriumLightTile extends LitElement {
     .state {
       font-size: 13px;
       font-weight: 500;
+    }
+    :host([compact]) button {
+      aspect-ratio: auto;
+      min-height: 64px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 10px 14px;
+    }
+    :host([compact]) svg {
+      flex: none;
+      width: 26px;
+      height: 26px;
+    }
+    :host([compact]) .text {
+      min-width: 0;
+    }
+    :host([compact]) .name {
+      font-size: 15px;
+      line-height: 1.15;
     }
     @media (prefers-reduced-motion: reduce) {
       button {
