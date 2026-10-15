@@ -24,9 +24,11 @@ import { AtriumMediaCard } from "./components/media-card";
 import { AtriumRoomPage } from "./pages/room-page";
 import { AtriumWidgetPage } from "./pages/widget-page";
 import { AtriumSearch } from "./components/search";
+import { AtriumDoorbell } from "./components/doorbell";
 import { AtriumEnergyFlow } from "./components/energy-flow";
 import { AtriumScreensaver } from "./components/screensaver";
 import {
+  AtriumDoorbellSettings,
   AtriumHomeSettings,
   AtriumNavSettings,
   AtriumPagesSettings,
@@ -102,6 +104,8 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-settings-page", AtriumSettingsPage],
   ["atrium-widget-page", AtriumWidgetPage],
   ["atrium-search", AtriumSearch],
+  ["atrium-doorbell", AtriumDoorbell],
+  ["atrium-doorbell-settings", AtriumDoorbellSettings],
   ["atrium-energy-flow", AtriumEnergyFlow],
   ["atrium-screensaver", AtriumScreensaver],
   ["atrium-home-settings", AtriumHomeSettings],

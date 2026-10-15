@@ -27,6 +27,7 @@ import type { HomeAssistant, PanelInfo, Route } from "./types/hass";
 import { reportClient } from "./util/diagnostics";
 import { WI } from "./widgets/icons";
 import { readScreensaverMinutes, SCREENSAVER_KEY } from "./components/screensaver";
+import type { AtriumDoorbell } from "./components/doorbell";
 import { PULL_THRESHOLD_PX, attachPullRefresh } from "./util/pull-refresh";
 
 export const VERSION = __ATRIUM_VERSION__;
@@ -669,6 +670,7 @@ export class AtriumPanel extends LitElement {
           @atrium-more-info=${this.#onMoreInfo}
           @atrium-favorite=${this.#onFavorite}
           @atrium-hide=${this.#onHide}
+          @atrium-doorbell-test=${() => (this.renderRoot.querySelector("atrium-doorbell") as AtriumDoorbell | null)?.ring()}
           style=${this._pull ? `transform: translateY(${this._pull * 0.4}px)` : ""}
         >
           ${
@@ -703,6 +705,7 @@ export class AtriumPanel extends LitElement {
       </div>
       ${this.#renderControl(ctx)}
       <atrium-screensaver .ctx=${ctx} .minutes=${this._saverMin}></atrium-screensaver>
+      <atrium-doorbell .ctx=${ctx}></atrium-doorbell>
       ${this._offline ? html`<div class="offline" role="status">${ctx.t("toast.offline")}</div>` : nothing}
       ${
         this._toast

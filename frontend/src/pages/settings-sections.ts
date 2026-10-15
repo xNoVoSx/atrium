@@ -33,6 +33,8 @@ import {
 import type { MessageKey } from "../i18n";
 import { ICONS } from "../theme/shared";
 import { availableWidgets, widgetDef } from "../widgets/catalog";
+import { doorbell, doorbellCandidates, setDoorbell, type DoorbellLayout } from "../data/doorbell";
+import { nameOf } from "../data/registry";
 
 export const settingsStyles = css`
   :host {
@@ -801,6 +803,77 @@ export class AtriumUsersSettings extends LitElement {
       </div>
       <div class="rows">
         ${LEVELS.map((l) => html`<p class="hint"><b>${t(`level.${l}` as MessageKey)}:</b> ${t(`level.${l}_sub` as MessageKey)}</p>`)}
+      </div>`;
+  }
+
+  static override styles = settingsStyles;
+}
+
+// ---- doorbell ----
+
+export class AtriumDoorbellSettings extends LitElement {
+  static override properties = { ctx: { attribute: false } };
+  declare ctx: PanelContext;
+
+  protected override render() {
+    const { t, layout, saveLayout, store } = this.ctx;
+    const hass = store.rawHass;
+    if (!hass) return nothing;
+    const cfg = ((layout as { doorbell?: DoorbellLayout }).doorbell ?? {}) as DoorbellLayout;
+    const found = doorbell(hass, { ...layout, doorbell: { ...cfg, off: false } });
+    const candidates = doorbellCandidates(hass);
+    const triggers = Object.keys(hass.states)
+      .filter((id) => id.startsWith("binary_sensor.") || id.startsWith("event."))
+      .sort((a, b) => Number(candidates.includes(b)) - Number(candidates.includes(a)) || a.localeCompare(b));
+    const cameras = Object.keys(hass.states).filter((id) => id.startsWith("camera."));
+    const label = (id: string) => `${nameOf(hass, id)} (${id})`;
+    return html`<h2>${t("settings.doorbell")}</h2>
+      <p class="hint">${t("settings.doorbell_hint")}</p>
+      <div class="row">
+        ${toggle(!cfg.off, (on) => saveLayout(setDoorbell(layout, { off: !on })), t("settings.doorbell"))}
+        <span class="name"
+          >${t("settings.doorbell_on")}<small
+            >${found ? `${t("settings.doorbell_found")}: ${nameOf(hass, found.trigger)}` : t("settings.doorbell_none")}</small
+          ></span
+        >
+      </div>
+      <div class="row">
+        <span class="name">${t("settings.doorbell_trigger")}</span>
+        <select
+          @change=${(e: Event) => saveLayout(setDoorbell(layout, { trigger: (e.target as HTMLSelectElement).value || undefined }))}
+        >
+          <option value="" ?selected=${!cfg.trigger}>${t("wo.auto")}</option>
+          ${triggers.map((id) => html`<option value=${id} ?selected=${cfg.trigger === id}>${label(id)}</option>`)}
+        </select>
+      </div>
+      <div class="row">
+        <span class="name">${t("settings.doorbell_camera")}</span>
+        <select
+          @change=${(e: Event) => saveLayout(setDoorbell(layout, { camera: (e.target as HTMLSelectElement).value || undefined }))}
+        >
+          <option value="" ?selected=${!cfg.camera}>
+            ${t("wo.auto")}${found?.camera ? ` – ${nameOf(hass, found.camera)}` : ""}
+          </option>
+          ${cameras.map((id) => html`<option value=${id} ?selected=${cfg.camera === id}>${label(id)}</option>`)}
+        </select>
+      </div>
+      <div class="row">
+        <span class="name">${t("settings.doorbell_seconds")}</span>
+        <select
+          @change=${(e: Event) => saveLayout(setDoorbell(layout, { seconds: Number((e.target as HTMLSelectElement).value) || undefined }))}
+        >
+          ${[30, 60, 120, 300].map((n) => html`<option value=${n} ?selected=${(cfg.seconds ?? 60) === n}>${n} s</option>`)}
+        </select>
+      </div>
+      <div>
+        <button
+          type="button"
+          class="text primary"
+          ?disabled=${cfg.off}
+          @click=${() => this.dispatchEvent(new CustomEvent("atrium-doorbell-test", { bubbles: true, composed: true }))}
+        >
+          ${t("settings.doorbell_test")}
+        </button>
       </div>`;
   }
 

@@ -366,6 +366,21 @@ async function main() {
     check("simple level hides categories", !navSimple.includes("categories") && navSimple.includes("home"), navSimple.join(","));
     await ws(page, { type: "atrium/settings/set_user", settings: {} });
 
+    // Doorbell: the settings find it, "try it" shows the camera popup.
+    await clickNav(page, "settings");
+    await page.waitForTimeout(300);
+    await panelClick(page, '[data-tab="doorbell"]');
+    await page.waitForTimeout(400);
+    await page.evaluate((d) => eval(d)(document, "atrium-doorbell-settings")?.shadowRoot.querySelector("button.primary")?.click(), deep);
+    const bellShown = await waitFor(
+      async () => page.evaluate((d) => Boolean(eval(d)(document, "atrium-doorbell")?.shadowRoot.querySelector(".card img")), deep),
+      { timeout: 5000 },
+    );
+    check("doorbell popup shows the door camera", bellShown != null);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${SHOTS}doorbell.png` });
+    await page.evaluate((d) => [...eval(d)(document, "atrium-doorbell").shadowRoot.querySelectorAll(".actions button")].at(-1).click(), deep);
+
     // A failing action shows a message instead of failing silently.
     await page.evaluate(() => {
       void document.querySelector("home-assistant").hass.callService("atrium_e2e_missing", "nothing");

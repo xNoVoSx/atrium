@@ -713,6 +713,7 @@ export class AtriumSettingsPage extends LitElement {
           ["rooms", "settings.tab_rooms"],
           ["categories", "settings.tab_categories"],
           ["users", "settings.tab_users"],
+          ["doorbell", "settings.tab_doorbell"],
           ["energy", "settings.tab_energy"],
           ["hidden", "settings.tab_hidden"],
         ]
@@ -752,6 +753,7 @@ export class AtriumSettingsPage extends LitElement {
         ${tab === "rooms" ? this.#renderRooms() : nothing}
         ${tab === "categories" ? this.#renderCategories() : nothing}
         ${tab === "users" ? html`<atrium-users-settings .ctx=${this.ctx}></atrium-users-settings>` : nothing}
+        ${tab === "doorbell" ? html`<atrium-doorbell-settings .ctx=${this.ctx}></atrium-doorbell-settings>` : nothing}
         ${tab === "energy" ? html`<atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>` : nothing}
         ${tab === "hidden" ? this.#renderHidden() : nothing}
       </div>

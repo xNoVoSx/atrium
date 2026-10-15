@@ -250,3 +250,54 @@ describe("room sections and categories", () => {
     ]);
   });
 });
+
+describe("doorbell", () => {
+  const withBell = () => {
+    const base = fakeHass();
+    return {
+      ...base,
+      states: {
+        ...base.states,
+        "binary_sensor.door_cam_besucher": state("binary_sensor.door_cam_besucher", "off"),
+        "binary_sensor.water_pressure": state("binary_sensor.water_pressure", "off"),
+        "camera.door_cam_sub": state("camera.door_cam_sub", "idle"),
+        "camera.door_cam_main": state("camera.door_cam_main", "idle"),
+        "camera.garden": state("camera.garden", "idle"),
+      },
+      entities: {
+        ...base.entities,
+        "binary_sensor.door_cam_besucher": {
+          entity_id: "binary_sensor.door_cam_besucher",
+          device_id: "cam",
+          labels: [],
+        },
+        "camera.door_cam_sub": { entity_id: "camera.door_cam_sub", device_id: "cam", labels: [] },
+        "camera.door_cam_main": { entity_id: "camera.door_cam_main", device_id: "cam", labels: [] },
+      },
+    } as HomeAssistant;
+  };
+
+  it("finds the ring sensor and the main camera of the same device", async () => {
+    const { doorbell, doorbellCandidates } = await import("../src/data/doorbell");
+    const hass = withBell();
+    expect(doorbellCandidates(hass)).toEqual(["binary_sensor.door_cam_besucher"]);
+    expect(doorbell(hass, {})).toEqual({
+      trigger: "binary_sensor.door_cam_besucher",
+      camera: "camera.door_cam_main",
+      seconds: 60,
+    });
+    expect(doorbell(hass, { doorbell: { off: true } })).toBeNull();
+    expect(doorbell(hass, { doorbell: { camera: "camera.garden", seconds: 30 } })?.camera).toBe(
+      "camera.garden",
+    );
+  });
+
+  it("knows what a ring is", async () => {
+    const { isRing } = await import("../src/data/doorbell");
+    expect(isRing("binary_sensor.x", "off", "on")).toBe(true);
+    expect(isRing("binary_sensor.x", "on", "off")).toBe(false);
+    expect(isRing("event.x", "2026-10-15T10:00:00", "2026-10-15T10:05:00")).toBe(true);
+    expect(isRing("event.x", undefined, "2026-10-15T10:05:00")).toBe(false);
+    expect(isRing("event.x", "a", "unavailable")).toBe(false);
+  });
+});
