@@ -106,6 +106,9 @@ async function main() {
     await click(p, '[data-widget="activity"] .ghost');
     await p.evaluate((d) => eval(d)(document, '[data-widget="activity"]')?.scrollIntoView(), deep);
     await shot(p, "desk-picker-activity", false);
+    await click(p, '[data-widget="schedules"] .ghost');
+    await p.evaluate((d) => eval(d)(document, '[data-widget="schedules"]')?.scrollIntoView(), deep);
+    await shot(p, "desk-picker-schedules", false);
     await p.keyboard.press("Escape");
     await click(p, ".edit-toggle");
     await p.keyboard.press("Control+k");

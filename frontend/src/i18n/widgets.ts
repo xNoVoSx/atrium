@@ -2,6 +2,23 @@
 
 export const widgetsEn = {
   // groups
+  "wn.schedules": "Schedules",
+  "wd.schedules": "Schedule helpers (e.g. heating times) as a week view; admins change the times.",
+  "day.monday": "Mo",
+  "day.tuesday": "Tu",
+  "day.wednesday": "We",
+  "day.thursday": "Th",
+  "day.friday": "Fr",
+  "day.saturday": "Sa",
+  "day.sunday": "Su",
+  "w.on_until": "on until",
+  "w.off_until": "off until",
+  "w.edit": "Change",
+  "w.save": "Save",
+  "w.cancel": "Cancel",
+  "w.from": "from",
+  "w.to": "to",
+  "w.copy_all": "to all days",
   "wn.floorplan": "Floor plan",
   "wd.floorplan": "Your plan (an image) with devices on it: tap to switch, drag to place in edit mode.",
   "wo.image": "Image address (e.g. /local/floorplan.png)",
@@ -294,6 +311,23 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wn.schedules": "Zeitpläne",
+  "wd.schedules": "Zeitplan-Helfer (z. B. Heizzeiten) als Wochenansicht; Admins ändern die Zeiten.",
+  "day.monday": "Mo",
+  "day.tuesday": "Di",
+  "day.wednesday": "Mi",
+  "day.thursday": "Do",
+  "day.friday": "Fr",
+  "day.saturday": "Sa",
+  "day.sunday": "So",
+  "w.on_until": "an bis",
+  "w.off_until": "aus bis",
+  "w.edit": "Ändern",
+  "w.save": "Speichern",
+  "w.cancel": "Abbrechen",
+  "w.from": "von",
+  "w.to": "bis",
+  "w.copy_all": "auf alle Tage",
   "wn.floorplan": "Grundriss",
   "wd.floorplan":
     "Dein Plan (ein Bild) mit Geräten darauf: tippen schaltet, im Bearbeiten-Modus an ihren Platz ziehen.",

@@ -190,6 +190,18 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     },
   ),
 
+  el(
+    "schedules",
+    (ctx, c, d) =>
+      html`<atrium-schedules-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-schedules-widget>`,
+    "comfort",
+    WI.timer,
+    (hass) => Object.keys(hass.states).some((id) => id.startsWith("schedule.")),
+    {
+      size: "l",
+    },
+  ),
+
   // household
   el(
     "covers",
