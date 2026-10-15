@@ -108,7 +108,6 @@ export class AtriumStatusModule extends LitElement {
       }
       .battery {
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         color: var(--a-text);
       }
       .battery svg {

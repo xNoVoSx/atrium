@@ -89,7 +89,6 @@ export class AtriumWasteModule extends LitElement {
         padding: 16px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
       }
       .next.soon {
         background: var(--a-ocher);
@@ -116,7 +115,6 @@ export class AtriumWasteModule extends LitElement {
         padding: 10px 12px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         display: flex;
         flex-direction: column;
         gap: 2px;

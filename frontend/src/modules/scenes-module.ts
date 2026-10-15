@@ -86,7 +86,6 @@ export class AtriumScenesModule extends LitElement {
         border-radius: var(--a-radius);
         background: var(--a-s1);
         color: var(--a-text);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         font-size: 15px;
         font-weight: 600;
         transition:

@@ -140,7 +140,6 @@ export class AtriumHeaderModule extends LitElement {
         padding: 6px 10px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         max-width: 100%;
         box-sizing: border-box;
       }

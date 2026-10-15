@@ -42,6 +42,33 @@ async function openAtrium(page) {
   return waitFor(async () => (await readPanel(page))?.tiles.length > 0, { timeout: 20000 });
 }
 
+/**
+ * Wait until the app runs the bundle Home Assistant serves. Right after a
+ * deploy Atrium reloads itself (by design); checks must start after that.
+ */
+async function waitForCurrentBundle(page) {
+  return waitFor(
+    async () => {
+      try {
+        const { served, loaded } = await page.evaluate(async () => {
+          const hass = document.querySelector("home-assistant")?.hass;
+          const info = await hass?.callWS({ type: "atrium/info" });
+          const loaded = performance
+            .getEntriesByType("resource")
+            .map((e) => e.name)
+            .filter((n) => n.includes("/atrium_static/atrium.js"))
+            .pop();
+          return { served: info?.frontend_hash, loaded };
+        });
+        return served && loaded?.endsWith(`?v=${served}`);
+      } catch {
+        return false; // reloading
+      }
+    },
+    { timeout: 30000, interval: 500 },
+  );
+}
+
 async function main() {
   mkdirSync(SHOTS, { recursive: true });
   const cfg = loadConfig();
@@ -58,6 +85,8 @@ async function main() {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
   check("Atrium opens in the app", (await openAtrium(page)) != null);
+  check("app runs the current bundle", (await waitForCurrentBundle(page)) != null);
+  await openAtrium(page);
   const panel = await readPanel(page);
 
   if (process.argv[2] === "inspect") {

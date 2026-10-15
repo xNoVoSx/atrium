@@ -294,7 +294,7 @@ export class AtriumRoomPage extends LitElement {
       .room {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 18px;
       }
       header {
         background: var(--a-panel);
@@ -409,7 +409,6 @@ export class AtriumRoomPage extends LitElement {
         padding: 8px 12px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         color: var(--a-text);
         display: flex;
         flex-direction: column;

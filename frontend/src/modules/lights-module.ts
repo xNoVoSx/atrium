@@ -29,6 +29,12 @@ export class AtriumLightsModule extends LitElement {
     (hass) => lightEntities(hass, this.areaId),
   );
 
+  #onCount = new SelectorController(
+    this,
+    () => this.ctx?.store,
+    (hass) => lightEntities(hass, this.areaId).filter((id) => hass.states[id]?.state === "on").length,
+  );
+
   constructor() {
     super();
     this.heading = true;
@@ -37,6 +43,7 @@ export class AtriumLightsModule extends LitElement {
 
   protected override willUpdate(): void {
     this.#ids.attach();
+    this.#onCount.attach();
   }
 
   protected override render() {
@@ -44,7 +51,14 @@ export class AtriumLightsModule extends LitElement {
     if (!ids.length) return nothing;
     const { store, t } = this.ctx;
     return html`
-      ${this.heading ? html`<h2 class="label">${t("section.lights")}</h2>` : nothing}
+      ${
+        this.heading
+          ? html`<div class="heading">
+              <h2 class="label">${t("section.lights")}</h2>
+              ${this.#onCount.value ? html`<span class="count">${this.#onCount.value} ${t("state.on").toLowerCase()}</span>` : nothing}
+            </div>`
+          : nothing
+      }
       <div class="grid ${this.compact ? "compact" : ""}">
         ${repeat(
           ids,
@@ -70,9 +84,18 @@ export class AtriumLightsModule extends LitElement {
         flex-direction: column;
         gap: 10px;
       }
+      .heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .count {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--a-text2);
+      }
       .grid.compact {
         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-        gap: 8px;
       }
       @media (max-width: 600px) {
         .grid.compact {

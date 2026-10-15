@@ -108,7 +108,6 @@ export class AtriumRoomsModule extends LitElement {
         padding: 12px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
-        box-shadow: inset 0 0 0 1px var(--a-line);
         color: var(--a-text);
         text-decoration: none;
         min-width: 0;

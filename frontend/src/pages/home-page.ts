@@ -41,7 +41,7 @@ export class AtriumHomePage extends LitElement {
     :host {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      gap: 14px;
+      gap: 18px;
       align-items: start;
     }
     @media (min-width: 900px) {

@@ -7,7 +7,7 @@ export type ThemePreference = "auto" | "dark" | "light";
 
 export const tokens = css`
   :host {
-    --a-radius: 6px;
+    --a-radius: 8px;
     --a-font: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
     --a-ocher: #e2b866;
     --a-on-ocher: #2a1e05;
@@ -16,30 +16,30 @@ export const tokens = css`
     --a-terra: #a4533a;
   }
   :host([theme="dark"]) {
-    --a-bg: #121416;
-    --a-s1: #1e2124;
-    --a-s2: #25292d;
-    --a-s3: #30353a;
+    /* Style B "Kachel klar": separation by surface steps, no outlines. */
+    --a-bg: #0f1113;
+    --a-s1: #23272b;
+    --a-s2: #2a2f34;
+    --a-s3: #343a40;
     --a-text: #ecedea;
     --a-text2: #a9aeb3;
     --a-text3: #7e848a;
     --a-scrim: rgba(0, 0, 0, 0.6);
-    --a-panel: #25292d;
-    --a-panel2: #30353a;
+    --a-panel: #262b30;
+    --a-panel2: #343a40;
     --a-on-panel: #ecedea;
     --a-on-panel2: #a9aeb3;
     --a-nav: #0b0c0d;
-    --a-nav-line: #25292d;
+    --a-nav-line: #1e2124;
     --a-on-nav: #a9aeb3;
     --a-terra-text: #e8957a;
-    --a-line: rgba(255, 255, 255, 0.07);
     color-scheme: dark;
   }
   :host([theme="light"]) {
-    --a-bg: #e4e6e3;
+    --a-bg: #dfe2de;
     --a-s1: #f5f6f4;
     --a-s2: #eceeeb;
-    --a-s3: #dcdfda;
+    --a-s3: #d6dad5;
     --a-text: #1e2022;
     --a-text2: #50555b;
     --a-text3: #6b7076;
@@ -52,7 +52,6 @@ export const tokens = css`
     --a-nav-line: #1e2022;
     --a-on-nav: #b7bbbf;
     --a-terra-text: #a4533a;
-    --a-line: rgba(30, 32, 34, 0.08);
     color-scheme: light;
   }
 `;
