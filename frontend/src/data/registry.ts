@@ -3,10 +3,15 @@
 
 import type { HassEntity, HomeAssistant } from "../types/hass";
 
-/** Hidden entities and config/diagnostic entities never appear automatically. */
+/**
+ * Hidden, disabled and config/diagnostic entities never appear automatically.
+ * Accepts both the compact display entries and full registry entries.
+ */
 export function isAutoVisible(hass: HomeAssistant, entityId: string): boolean {
   const entry = hass.entities[entityId];
-  return !entry?.hidden && !entry?.entity_category;
+  if (!entry) return true;
+  const hidden = entry.hidden === true || Boolean(entry.hidden_by);
+  return !hidden && !entry.disabled_by && !entry.entity_category;
 }
 
 /** The entity's own area, else the area of its device. */

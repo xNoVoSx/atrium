@@ -18,6 +18,19 @@ describe("isAutoVisible", () => {
     expect(isAutoVisible(hass, "light.hall")).toBe(true);
   });
 
+  it("understands full registry entries as delivered by the Companion app", () => {
+    const app = fakeHass({
+      entities: {
+        "light.member_1": { entity_id: "light.member_1", labels: [], hidden_by: "integration" },
+        "light.disabled": { entity_id: "light.disabled", labels: [], hidden_by: null, disabled_by: "user" },
+        "light.group": { entity_id: "light.group", labels: [], hidden_by: null, disabled_by: null },
+      },
+    });
+    expect(isAutoVisible(app, "light.member_1")).toBe(false);
+    expect(isAutoVisible(app, "light.disabled")).toBe(false);
+    expect(isAutoVisible(app, "light.group")).toBe(true);
+  });
+
   it("shows entities without a registry entry", () => {
     expect(isAutoVisible(hass, "light.not_in_registry")).toBe(true);
   });

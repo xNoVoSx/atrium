@@ -11,8 +11,15 @@ import type {
 
 export type { HassEntity };
 
+/**
+ * One entry of `hass.entities`. Browsers get the compact "display" form
+ * (`hidden: true`); the Companion app was seen delivering full registry
+ * entries instead (`hidden_by`, `disabled_by`). Both must be understood.
+ */
 export interface EntityRegistryDisplayEntry {
   entity_id: string;
+  hidden_by?: string | null;
+  disabled_by?: string | null;
   name?: string | null;
   icon?: string;
   device_id?: string;
