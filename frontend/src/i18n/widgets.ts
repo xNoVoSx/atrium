@@ -2,6 +2,10 @@
 
 export const widgetsEn = {
   // groups
+  "wo.tile_style": "Tile style",
+  "wo.style_compact": "Compact",
+  "wo.style_square": "Large squares",
+  "wo.style_list": "List",
   "wn.schedules": "Schedules",
   "wd.schedules": "Schedule helpers (e.g. heating times) as a week view; admins change the times.",
   "day.monday": "Mo",
@@ -311,6 +315,10 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wo.tile_style": "Kachel-Stil",
+  "wo.style_compact": "Kompakt",
+  "wo.style_square": "Große Quadrate",
+  "wo.style_list": "Liste",
   "wn.schedules": "Zeitpläne",
   "wd.schedules": "Zeitplan-Helfer (z. B. Heizzeiten) als Wochenansicht; Admins ändern die Zeiten.",
   "day.monday": "Mo",

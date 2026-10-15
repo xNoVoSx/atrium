@@ -69,12 +69,30 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "m",
     minLevel: "simple",
     available: (hass) => lightEntities(hass).length > 0,
-    options: [{ key: "area", label: "wo.area", kind: "area" }],
+    options: [
+      { key: "area", label: "wo.area", kind: "area" },
+      {
+        key: "style",
+        label: "wo.tile_style",
+        kind: "select",
+        choices: [
+          ["compact", "wo.style_compact"],
+          ["square", "wo.style_square"],
+          ["list", "wo.style_list"],
+        ],
+      },
+    ],
     render: (ctx, c) => {
       const area = areaOf(c.options);
+      const style = c.options?.style as "compact" | "square" | "list" | undefined;
       return area
-        ? html`<atrium-lights-module .ctx=${ctx} .areaId=${area} compact></atrium-lights-module>`
-        : html`<atrium-lights-module .ctx=${ctx} compact home></atrium-lights-module>`;
+        ? html`<atrium-lights-module
+            .ctx=${ctx}
+            .areaId=${area}
+            .variant=${style}
+            compact
+          ></atrium-lights-module>`
+        : html`<atrium-lights-module .ctx=${ctx} .variant=${style} compact home></atrium-lights-module>`;
     },
   },
   {

@@ -26,6 +26,7 @@ export class AtriumLightTile extends LitElement {
   static override properties = {
     entityId: { attribute: "entity-id", reflect: true },
     compact: { type: Boolean, reflect: true },
+    list: { type: Boolean, reflect: true },
     areaName: { attribute: false },
     editing: { type: Boolean, reflect: true },
     favorite: { type: Boolean },
@@ -272,6 +273,31 @@ export class AtriumLightTile extends LitElement {
       }
       :host([compact]) .text {
         min-width: 0;
+      }
+      :host([list]) button.tile {
+        min-height: 48px;
+        padding: 6px 12px;
+        gap: 10px;
+      }
+      :host([list]) svg {
+        width: 22px;
+        height: 22px;
+      }
+      :host([list]) .text {
+        flex-direction: row;
+        align-items: baseline;
+        justify-content: space-between;
+        flex: 1;
+        gap: 8px;
+      }
+      :host([list]) .name {
+        -webkit-line-clamp: 1;
+      }
+      :host([list]) .wash {
+        clip-path: circle(0% at 23px 50%);
+      }
+      :host([list]) button.tile.on .wash {
+        clip-path: circle(150% at 23px 50%);
       }
       :host([compact]) .name {
         font-size: 15px;

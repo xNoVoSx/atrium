@@ -22,6 +22,7 @@ export class AtriumLightsModule extends LitElement {
     areaId: { attribute: "area-id" },
     heading: { type: Boolean },
     compact: { type: Boolean },
+    variant: {},
     home: { type: Boolean },
     _preview: { state: true },
   };
@@ -30,6 +31,8 @@ export class AtriumLightsModule extends LitElement {
   declare areaId: string | undefined;
   declare heading: boolean;
   declare compact: boolean;
+  /** Tile style chosen in the widget settings; overrides `compact`. */
+  declare variant: "compact" | "square" | "list" | undefined;
   /** Home page: favourites first. */
   declare home: boolean;
   declare _preview: string[] | null;
@@ -125,6 +128,10 @@ export class AtriumLightsModule extends LitElement {
     }
   }
 
+  #variant(): "compact" | "square" | "list" {
+    return this.variant ?? (this.compact ? "compact" : "square");
+  }
+
   protected override render() {
     const list = this.#list.value;
     const ids = this._preview ?? list?.ids ?? [];
@@ -143,7 +150,7 @@ export class AtriumLightsModule extends LitElement {
             </div>`
           : nothing
       }
-      <div class="grid ${this.compact ? "compact" : ""}">
+      <div class="grid ${this.#variant()}">
         ${repeat(
           ids,
           (id) => id,
@@ -151,7 +158,8 @@ export class AtriumLightsModule extends LitElement {
             id.startsWith("light.")
               ? html`<atrium-light-tile
                   data-sort-id=${id}
-                  ?compact=${this.compact}
+                  ?compact=${this.#variant() !== "square"}
+                  ?list=${this.#variant() === "list"}
                   .entityId=${id}
                   .store=${store}
                   .t=${t}
@@ -199,6 +207,10 @@ export class AtriumLightsModule extends LitElement {
       }
       .grid.compact {
         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      }
+      .grid.list {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 6px;
       }
       @media (max-width: 600px) {
         .grid.compact {

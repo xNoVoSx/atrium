@@ -423,6 +423,21 @@ async function main() {
       { timeout: 8000 },
     );
 
+    // Tile styles of the lights widget.
+    for (const style of ["list", "square"]) {
+      const layout = (await ws(page, { type: "atrium/settings/get" })).layout;
+      layout.pages.home.widgets = layout.pages.home.widgets.map((w) => (w.type === "lights" ? { ...w, options: { ...w.options, style } } : w));
+      await ws(page, { type: "atrium/settings/set_layout", layout });
+      await page.waitForTimeout(700);
+      const tiles = await page.evaluate((d) => {
+        const mod = eval(d)(document, "atrium-lights-module");
+        return [...(mod?.shadowRoot.querySelectorAll("atrium-light-tile") ?? [])].map((t) => ({ list: t.hasAttribute("list"), compact: t.hasAttribute("compact") }));
+      }, deep);
+      const ok = tiles.length > 0 && tiles.every((t) => (style === "list" ? t.list && t.compact : !t.list && !t.compact));
+      check(`lights widget in ${style} style`, ok, `${tiles.length} tiles`);
+      await page.screenshot({ path: `${SHOTS}lights-${style}.png` });
+    }
+
     // Doorbell: the settings find it, "try it" shows the camera popup.
     await clickNav(page, "settings");
     await page.waitForTimeout(300);
