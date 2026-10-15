@@ -659,6 +659,13 @@ export class AtriumPanel extends LitElement {
         box-sizing: border-box;
         position: relative;
       }
+      /* "Simple" view: everything a little larger and easier to hit. */
+      :host([level="simple"]) main {
+        zoom: 1.12;
+      }
+      :host([level="simple"]) nav {
+        font-size: 1.05em;
+      }
       :host([narrow]) main {
         padding-bottom: calc(96px + env(safe-area-inset-bottom));
       }

@@ -33,6 +33,7 @@ import {
 import { AtriumWidgetEditor } from "./components/widget-editor";
 import { AtriumWidgetPicker } from "./components/widget-picker";
 import { AtriumDataWidget } from "./widgets/elements/data-widget";
+import { AtriumActivityWidget, AtriumRoomCardWidget } from "./widgets/elements/more";
 import {
   AtriumCamerasWidget,
   AtriumEntitiesWidget,
@@ -106,6 +107,8 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-widget-editor", AtriumWidgetEditor],
   ["atrium-widget-picker", AtriumWidgetPicker],
   ["atrium-data-widget", AtriumDataWidget],
+  ["atrium-activity-widget", AtriumActivityWidget],
+  ["atrium-room-card-widget", AtriumRoomCardWidget],
   ["atrium-entities-widget", AtriumEntitiesWidget],
   ["atrium-graph-widget", AtriumGraphWidget],
   ["atrium-gauge-widget", AtriumGaugeWidget],

@@ -142,6 +142,33 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     },
   ),
 
+  el(
+    "activity",
+    (ctx, c, d) =>
+      html`<atrium-activity-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-activity-widget>`,
+    "info",
+    WI.pulse,
+    () => true,
+    {
+      options: [
+        { key: "hours", label: "wo.hours", kind: "number", min: 1, max: 72 },
+        { key: "max", label: "wo.max", kind: "number", min: 3, max: 30 },
+      ],
+    },
+  ),
+  el(
+    "room",
+    (ctx, c, d) =>
+      html`<atrium-room-card-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-room-card-widget>`,
+    "overview",
+    WI.rooms,
+    (hass) => Object.keys(hass.areas).length > 0,
+    {
+      minLevel: "simple",
+      options: [AREA],
+    },
+  ),
+
   // household
   el(
     "covers",

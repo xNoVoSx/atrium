@@ -2,6 +2,17 @@
 
 export const widgetsEn = {
   // groups
+  "wn.activity": "What happened",
+  "wn.room": "One room",
+  "wd.activity": "Doors, lights, people: the latest events as a timeline.",
+  "wd.room": "One room compact: temperature, humidity, all lights on/off.",
+  "w.came_home": "came home",
+  "w.left_home": "left",
+  "w.ran": "started",
+  "w.quiet": "Nothing happened yet.",
+  "w.choose_room": "Choose a room in the settings.",
+  "w.all_on": "all on",
+  "w.all_off": "all off",
   "wg.overview": "Overview",
   "wg.comfort": "Light and climate",
   "wg.household": "Household",
@@ -274,6 +285,17 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wn.activity": "Was ist passiert",
+  "wn.room": "Ein Raum",
+  "wd.activity": "Türen, Lichter, Personen: die letzten Ereignisse als Zeitleiste.",
+  "wd.room": "Ein Raum kompakt: Temperatur, Feuchte, alle Lichter an/aus.",
+  "w.came_home": "ist heimgekommen",
+  "w.left_home": "ist weg",
+  "w.ran": "gestartet",
+  "w.quiet": "Noch nichts passiert.",
+  "w.choose_room": "Wähle in den Einstellungen einen Raum.",
+  "w.all_on": "alle an",
+  "w.all_off": "alle aus",
   "wg.overview": "Überblick",
   "wg.comfort": "Licht und Klima",
   "wg.household": "Haushalt",

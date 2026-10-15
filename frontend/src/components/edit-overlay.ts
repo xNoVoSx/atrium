@@ -85,23 +85,29 @@ export const editStyles = css`
     cursor: grabbing;
     filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
   }
-  :host([editing]) button.tile {
-    padding-right: 88px;
-  }
   .edit-actions {
+    /* Badges on the top-right corner, so the tile keeps its full width for the name. */
     position: absolute;
-    top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
+    top: -8px;
+    right: -6px;
+    z-index: 2;
     display: flex;
-    gap: 6px;
+    gap: 4px;
+    animation: badge-in calc(var(--a-motion, 1) * 260ms) cubic-bezier(0.3, 1.5, 0.5, 1);
+  }
+  @keyframes badge-in {
+    from {
+      transform: scale(0.4);
+      opacity: 0;
+    }
   }
   .edit-action {
     all: unset;
     box-sizing: border-box;
-    width: 32px;
-    height: 32px;
-    border-radius: 16px;
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    box-shadow: 0 0 0 3px var(--a-bg);
     display: flex;
     align-items: center;
     justify-content: center;

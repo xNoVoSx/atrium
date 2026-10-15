@@ -103,6 +103,9 @@ async function main() {
     await shot(p, "desk-picker", false);
     await click(p, '[data-widget="unifi"] .ghost');
     await shot(p, "desk-picker-preview", false);
+    await click(p, '[data-widget="activity"] .ghost');
+    await p.evaluate((d) => eval(d)(document, '[data-widget="activity"]')?.scrollIntoView(), deep);
+    await shot(p, "desk-picker-activity", false);
     await p.keyboard.press("Escape");
     await click(p, ".edit-toggle");
     await p.keyboard.press("Control+k");
