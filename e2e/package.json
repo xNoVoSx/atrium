@@ -1,0 +1,14 @@
+{
+  "name": "atrium-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests against a real Home Assistant. Configure ../.env (see .env.example).",
+  "scripts": {
+    "install-browser": "PLAYWRIGHT_BROWSERS_PATH=.browsers playwright install chromium",
+    "test": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env run.mjs",
+    "update-check": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env update-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

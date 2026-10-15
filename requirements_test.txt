@@ -1,0 +1,4 @@
+# Pins the matching homeassistant release; bump together with "homeassistant" in hacs.json.
+pytest-homeassistant-custom-component==0.13.372
+home-assistant-frontend==20260930.3
+ruff==0.14.0

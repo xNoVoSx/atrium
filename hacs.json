@@ -1,0 +1,7 @@
+{
+  "name": "Atrium",
+  "homeassistant": "2026.9.0",
+  "zip_release": true,
+  "filename": "atrium.zip",
+  "render_readme": true
+}

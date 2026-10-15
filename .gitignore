@@ -6,6 +6,8 @@ __pycache__/
 # Node / frontend build
 node_modules/
 frontend/dist/
+.pytest_cache/
+.ruff_cache/
 
 # Local environment
 .env
@@ -14,3 +16,13 @@ frontend/dist/
 .idea/
 .vscode/
 .DS_Store
+
+# Built frontend bundle (shipped in release zips, not in git)
+custom_components/atrium/frontend/
+
+# End-to-end test artefacts (contain names from a real home)
+e2e/.browsers/
+e2e/screenshots/
+
+# Claude Code sandbox bookkeeping
+.claude/
