@@ -161,7 +161,14 @@ const FIND_PANEL = `
     return null;
   })(document)`;
 
+/** What the panel shows; null while not rendered or while the page reloads itself. */
 export const readPanel = (page) =>
+  readPanelNow(page).catch((err) => {
+    if (/context was destroyed|navigation|Target closed/i.test(String(err))) return null;
+    throw err;
+  });
+
+const readPanelNow = (page) =>
   page.evaluate((findPanel) => {
     const panel = eval(findPanel);
     if (!panel?.shadowRoot) return null; // element not upgraded yet
