@@ -53,6 +53,8 @@ export const ICONS = {
   refresh: "M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5",
   close: "M6 6l12 12M18 6L6 18",
   next: "M9 6l6 6-6 6",
+  up: "M6 15l6-6 6 6",
+  down: "M6 9l6 6 6-6",
   power: "M12 3v9M6.3 7.3a8 8 0 1 0 11.4 0",
   media: "M7 5l12 7-12 7z",
   window: "M4 4h16v16H4zM12 4v16M4 12h16",

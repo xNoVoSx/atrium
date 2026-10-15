@@ -5,6 +5,7 @@ import type { MessageKey, Translate } from "../i18n";
 import type { HassEntity } from "../types/hass";
 import { ICONS } from "../theme/shared";
 import { attachPress } from "../util/press";
+import { editOverlay, editStyles } from "./edit-overlay";
 import { icon } from "./icon";
 
 /** What a tap does for each domain. Locks and alarms never act on a single tap. */
@@ -43,11 +44,19 @@ export class AtriumEntityTile extends LitElement {
     entityId: { attribute: "entity-id", reflect: true },
     store: { attribute: false },
     t: { attribute: false },
+    editing: { type: Boolean, reflect: true },
+    favorite: { type: Boolean },
+    atriumHidden: { type: Boolean, attribute: "atrium-hidden", reflect: true },
+    canHide: { type: Boolean },
   };
 
   declare entityId: string;
   declare store: EntityStore | undefined;
   declare t: Translate;
+  declare editing: boolean;
+  declare favorite: boolean;
+  declare atriumHidden: boolean;
+  declare canHide: boolean;
 
   #entity = new EntityController(this, () => this.store);
   #detach: (() => void) | undefined;
@@ -57,11 +66,11 @@ export class AtriumEntityTile extends LitElement {
   }
 
   protected override firstUpdated(): void {
-    const button = this.renderRoot.querySelector("button");
+    const button = this.renderRoot.querySelector<HTMLElement>("button.tile");
     if (!button) return;
     this.#detach = attachPress(button, {
-      onTap: () => this.#tap(),
-      onLongPress: () => this.#moreInfo(),
+      onTap: () => !this.editing && this.#tap(),
+      onLongPress: () => !this.editing && this.#moreInfo(),
     });
   }
 
@@ -114,87 +123,102 @@ export class AtriumEntityTile extends LitElement {
     const media = domain === "media_player";
     const title = media ? ((s.attributes.media_title as string | undefined) ?? "") : "";
     return html`<button
-      type="button"
-      class="${active ? (media ? "media" : "on") : ""} ${s.state === "unavailable" ? "unavailable" : ""}"
-      aria-pressed=${String(active)}
-    >
-      ${icon(media ? ICONS.media : ICONS.power, 26)}
-      <span class="text">
-        <span class="name">${friendlyName(s)}</span>
-        <span class="state">${title || this.#stateLabel(s)}</span>
-      </span>
-    </button>`;
+        type="button"
+        class="tile ${active ? (media ? "media" : "on") : ""} ${s.state === "unavailable" ? "unavailable" : ""}"
+        aria-pressed=${String(active)}
+      >
+        ${icon(media ? ICONS.media : ICONS.power, 26)}
+        <span class="text">
+          <span class="name">${friendlyName(s)}</span>
+          <span class="state">${title || this.#stateLabel(s)}</span>
+        </span>
+      </button>
+      ${editOverlay(
+        this,
+        this.entityId,
+        {
+          editing: this.editing,
+          favorite: this.favorite,
+          hidden: this.atriumHidden,
+          canHide: this.canHide,
+        },
+        this.t,
+      )}`;
   }
 
-  static override styles = css`
-    :host {
-      display: block;
-    }
-    button {
-      all: unset;
-      box-sizing: border-box;
-      width: 100%;
-      min-height: 64px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: var(--a-radius);
-      cursor: pointer;
-      background: var(--a-s1);
-      color: var(--a-text);
-      font-family: var(--a-font);
-      transition:
-        background-color 220ms ease,
-        transform 120ms ease;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    button:focus-visible {
-      outline: 2px solid var(--a-ocher);
-      outline-offset: 2px;
-    }
-    button.on {
-      background: var(--a-ocher);
-      color: var(--a-on-ocher);
-      box-shadow: none;
-    }
-    button.media {
-      background: var(--a-slate);
-      color: #fff;
-      box-shadow: none;
-    }
-    button.unavailable {
-      opacity: 0.45;
-    }
-    button[pressed] {
-      transform: scale(0.97);
-    }
-    svg {
-      flex: none;
-    }
-    .text {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-    .name {
-      font-size: 15px;
-      font-weight: 600;
-      line-height: 1.15;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-    .state {
-      font-size: 13px;
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  `;
+  static override styles = [
+    css`
+      :host {
+        display: block;
+      }
+      button.tile {
+        all: unset;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: var(--a-radius);
+        cursor: pointer;
+        background: var(--a-s1);
+        color: var(--a-text);
+        font-family: var(--a-font);
+        transition:
+          background-color 220ms ease,
+          transform 120ms ease;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      button.tile:focus-visible {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 2px;
+      }
+      button.tile.on {
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+        box-shadow: none;
+      }
+      button.tile.media {
+        background: var(--a-slate);
+        color: #fff;
+        box-shadow: none;
+      }
+      button.tile.unavailable {
+        opacity: 0.45;
+      }
+      button.tile[pressed] {
+        transform: scale(0.97);
+      }
+      svg {
+        flex: none;
+      }
+      .text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .name {
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.15;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .state {
+        font-size: 13px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    `,
+    // Last, so edit mode wins over the tile layout (e.g. compact padding).
+    editStyles,
+  ];
 }

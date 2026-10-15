@@ -4,10 +4,23 @@ import { LitElement, css, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import type { PanelContext } from "../context";
 import { StructureController } from "../data/entity-store";
-import { climateZones } from "../data/home";
-import { groupByArea } from "../data/registry";
+import { icon } from "../components/icon";
+import { climateZones, rooms } from "../data/home";
+import {
+  hiddenAreas,
+  hiddenEntities,
+  homeModuleList,
+  moveBy,
+  moveModule,
+  savedOrder,
+  setAreaHidden,
+  setEntityHidden,
+  setModuleEnabled,
+  setOrder,
+} from "../data/layout";
+import { groupByArea, nameOf } from "../data/registry";
 import type { MessageKey } from "../i18n";
-import { shared } from "../theme/shared";
+import { ICONS, shared } from "../theme/shared";
 import type { ThemePreference } from "../theme/tokens";
 
 export class AtriumRoomsPage extends LitElement {
@@ -150,8 +163,122 @@ export class AtriumSettingsPage extends LitElement {
   declare theme: ThemePreference;
   declare version: string;
 
-  protected override render() {
+  #structure = new StructureController(this, () => this.ctx?.store);
+
+  protected override willUpdate(): void {
+    this.#structure.attach();
+  }
+
+  #moveButtons(onMove: (delta: -1 | 1) => void, first: boolean, last: boolean) {
     const { t } = this.ctx;
+    return html`<button
+        type="button"
+        class="icon"
+        aria-label=${t("settings.up")}
+        ?disabled=${first}
+        @click=${() => onMove(-1)}
+      >
+        ${icon(ICONS.up, 18, 2)}
+      </button>
+      <button
+        type="button"
+        class="icon"
+        aria-label=${t("settings.down")}
+        ?disabled=${last}
+        @click=${() => onMove(1)}
+      >
+        ${icon(ICONS.down, 18, 2)}
+      </button>`;
+  }
+
+  #renderModules() {
+    const { t, layout, saveLayout } = this.ctx;
+    const modules = homeModuleList(layout);
+    return html`<section>
+      <h2 class="label">${t("settings.home")}</h2>
+      <div class="rows">
+        ${modules.map(
+          (m, i) =>
+            html`<div class="row" data-module=${m.id}>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  .checked=${m.enabled}
+                  @change=${(ev: Event) =>
+                    saveLayout(setModuleEnabled(layout, m.id, (ev.target as HTMLInputElement).checked))}
+                />
+                <span class="track"></span>
+              </label>
+              <span class="name ${m.enabled ? "" : "off"}">${t(`module.${m.id}` as MessageKey)}</span>
+              ${this.#moveButtons((d) => saveLayout(moveModule(layout, m.id, d)), i === 0, i === modules.length - 1)}
+            </div>`,
+        )}
+      </div>
+    </section>`;
+  }
+
+  #renderRooms() {
+    const { t, layout, saveLayout, store } = this.ctx;
+    const raw = store.rawHass;
+    if (!raw) return nothing;
+    const hidden = hiddenAreas(layout);
+    const list = rooms(raw, savedOrder(layout, "rooms"));
+    const ids = list.map((r) => r.areaId);
+    return html`<section>
+      <h2 class="label">${t("settings.rooms")}</h2>
+      <div class="rows">
+        ${list.map(
+          (r, i) =>
+            html`<div class="row" data-area=${r.areaId}>
+              <span class="name ${hidden.has(r.areaId) ? "off" : ""}">${r.name}</span>
+              <button
+                type="button"
+                class="text"
+                @click=${() => saveLayout(setAreaHidden(layout, r.areaId, !hidden.has(r.areaId)))}
+              >
+                ${hidden.has(r.areaId) ? t("settings.show_room") : t("settings.hide_room")}
+              </button>
+              ${this.#moveButtons(
+                (d) => saveLayout(setOrder(layout, "rooms", moveBy(ids, r.areaId, d))),
+                i === 0,
+                i === list.length - 1,
+              )}
+            </div>`,
+        )}
+      </div>
+    </section>`;
+  }
+
+  #renderHidden() {
+    const { t, layout, saveLayout, store } = this.ctx;
+    const raw = store.rawHass;
+    const hidden = [...hiddenEntities(layout)];
+    return html`<section>
+      <h2 class="label">${t("settings.hidden")}</h2>
+      ${
+        hidden.length
+          ? html`<div class="rows">
+              ${hidden.map(
+                (id) =>
+                  html`<div class="row" data-hidden=${id}>
+                    <span class="name">${raw ? nameOf(raw, id) : id}</span>
+                    <button
+                      type="button"
+                      class="text"
+                      @click=${() => saveLayout(setEntityHidden(layout, id, false))}
+                    >
+                      ${t("settings.show")}
+                    </button>
+                  </div>`,
+              )}
+            </div>`
+          : html`<p class="hint">${t("settings.hidden_none")}</p>`
+      }
+    </section>`;
+  }
+
+  protected override render() {
+    const { t, isAdmin } = this.ctx;
     const themes: ThemePreference[] = ["auto", "dark", "light"];
     return html`<h1>${t("settings.title")}</h1>
       <section>
@@ -173,7 +300,8 @@ export class AtriumSettingsPage extends LitElement {
           )}
         </div>
       </section>
-      <p class="hint">${t("settings.later")}</p>
+      ${isAdmin ? html`${this.#renderModules()} ${this.#renderRooms()} ${this.#renderHidden()}` : nothing}
+      <p class="hint">${t("settings.edit_hint")}</p>
       <p class="hint">${t("settings.version")} ${this.version}</p>`;
   }
 
@@ -185,6 +313,7 @@ export class AtriumSettingsPage extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        max-width: 640px;
       }
       .seg {
         display: inline-flex;
@@ -207,6 +336,99 @@ export class AtriumSettingsPage extends LitElement {
       .seg button[aria-pressed="true"] {
         background: var(--a-text);
         color: var(--a-bg);
+      }
+      .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 56px;
+        padding: 0 8px 0 14px;
+        border-radius: var(--a-radius);
+        background: var(--a-s1);
+      }
+      .name {
+        flex: 1;
+        min-width: 0;
+        font-size: 15px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .name.off {
+        color: var(--a-text2);
+        font-weight: 500;
+      }
+      .icon,
+      .text {
+        border: 0;
+        border-radius: var(--a-radius);
+        background: var(--a-s3);
+        color: var(--a-text);
+        min-height: 40px;
+      }
+      .icon {
+        width: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .text {
+        padding: 0 12px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .switch {
+        position: relative;
+        width: 46px;
+        height: 28px;
+        flex: none;
+        cursor: pointer;
+      }
+      .switch input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        margin: 0;
+        cursor: pointer;
+      }
+      .track {
+        position: absolute;
+        inset: 0;
+        border-radius: 14px;
+        background: var(--a-s3);
+        transition: background-color 160ms ease;
+      }
+      .track::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: var(--a-text);
+        transition: transform 160ms ease;
+      }
+      .switch input:checked + .track {
+        background: var(--a-ocher);
+      }
+      .switch input:checked + .track::after {
+        transform: translateX(18px);
+        background: var(--a-on-ocher);
+      }
+      .switch input:focus-visible + .track {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 2px;
       }
     `,
   ];

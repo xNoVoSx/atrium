@@ -4,6 +4,7 @@ import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { adjacentRooms, areaTemperature, roomContent, rooms } from "../data/home";
+import { favorites, savedOrder } from "../data/layout";
 import { nameOf, withoutArea } from "../data/registry";
 import type { MessageKey, Translate } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
@@ -54,7 +55,8 @@ export class AtriumRoomPage extends LitElement {
     () => this.ctx?.store,
     (hass) => {
       const content = roomContent(hass, this.areaId);
-      const all = rooms(hass);
+      const order = savedOrder(this.ctx.layout, "rooms");
+      const all = rooms(hass, order);
       const area = hass.areas[this.areaId];
       const humidityId = area?.humidity_entity_id;
       const humidity = humidityId ? Number(hass.states[humidityId]?.state) : NaN;
@@ -64,7 +66,7 @@ export class AtriumRoomPage extends LitElement {
         icon: area?.icon ?? null,
         index: all.findIndex((r) => r.areaId === this.areaId) + 1,
         count: all.length,
-        ...adjacentRooms(hass, this.areaId),
+        ...adjacentRooms(hass, this.areaId, order),
         temperature: areaTemperature(hass, this.areaId),
         humidity: Number.isNaN(humidity) ? null : humidity,
         lightsOn: content.lights.filter((id) => hass.states[id]?.state === "on").length,
@@ -149,6 +151,7 @@ export class AtriumRoomPage extends LitElement {
     const room = this.#room.value;
     if (!room) return nothing;
     const { t, locale, store } = this.ctx;
+    const favs = new Set(favorites(this.ctx.user));
     const c = room.content;
     const hasIcon = room.icon && customElements.get("ha-icon");
     return html`
@@ -215,7 +218,15 @@ export class AtriumRoomPage extends LitElement {
                     c.devices,
                     (id) => id,
                     (id) =>
-                      html`<atrium-entity-tile .entityId=${id} .store=${store} .t=${t}></atrium-entity-tile>`,
+                      html`<atrium-entity-tile
+                        .entityId=${id}
+                        .store=${store}
+                        .t=${t}
+                        ?editing=${this.ctx.editing}
+                        ?favorite=${favs.has(id)}
+                        ?atrium-hidden=${this.ctx.hiddenEntities.has(id)}
+                        ?canHide=${this.ctx.isAdmin}
+                      ></atrium-entity-tile>`,
                   )}
                 </div>`,
               )
@@ -230,7 +241,15 @@ export class AtriumRoomPage extends LitElement {
                     c.media,
                     (id) => id,
                     (id) =>
-                      html`<atrium-entity-tile .entityId=${id} .store=${store} .t=${t}></atrium-entity-tile>`,
+                      html`<atrium-entity-tile
+                        .entityId=${id}
+                        .store=${store}
+                        .t=${t}
+                        ?editing=${this.ctx.editing}
+                        ?favorite=${favs.has(id)}
+                        ?atrium-hidden=${this.ctx.hiddenEntities.has(id)}
+                        ?canHide=${this.ctx.isAdmin}
+                      ></atrium-entity-tile>`,
                   )}
                 </div>`,
               )

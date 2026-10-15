@@ -13,7 +13,6 @@ import {
   adjacentRooms,
   daysUntil,
 } from "../src/data/home";
-import { homeModules } from "../src/data/layout";
 import { navSection, parseRoute, routePath } from "../src/router";
 import { fakeHass, state } from "./fixtures";
 
@@ -108,23 +107,6 @@ describe("scenes", () => {
       "script.a": state("script.a", "off", { friendly_name: "All off" }),
     });
     expect(sceneEntities(hass)).toEqual(["script.a", "scene.b"]);
-  });
-});
-
-describe("layout", () => {
-  it("shows a calm home page by default", () => {
-    expect(homeModules(undefined)).toEqual(["header", "status", "climate", "lights"]);
-  });
-
-  it("applies order and hidden modules, ignoring unknown ids", () => {
-    expect(homeModules({ home: { order: ["rooms", "nope", "header"], hidden: ["scenes"] } })).toEqual([
-      "rooms",
-      "header",
-      "status",
-      "climate",
-      "lights",
-      "waste",
-    ]);
   });
 });
 

@@ -1,13 +1,20 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, type PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { lightEntities } from "../data/home";
+import { applyOrder, favorites, savedOrder, setFavoritesOrder, setOrder } from "../data/layout";
+import { isAutoVisible } from "../data/registry";
 import { shared } from "../theme/shared";
+import { attachSortable } from "../util/sortable";
+
+type Mode = "favorites" | "lights";
 
 /**
- * Light tiles. On the home page all visible lights for now; favourites
- * replace this list once they can be chosen (settings, step 6).
+ * Light tiles. On the home page a user's favourites replace the list once
+ * there are any; in edit mode all lights show so more can be starred.
+ * Tiles can be dragged in edit mode: favourites by everyone (own order),
+ * the automatic list by admins (shared order).
  */
 export class AtriumLightsModule extends LitElement {
   static override properties = {
@@ -15,47 +22,124 @@ export class AtriumLightsModule extends LitElement {
     areaId: { attribute: "area-id" },
     heading: { type: Boolean },
     compact: { type: Boolean },
+    home: { type: Boolean },
+    _preview: { state: true },
   };
 
   declare ctx: PanelContext;
   declare areaId: string | undefined;
   declare heading: boolean;
   declare compact: boolean;
+  /** Home page: favourites first. */
+  declare home: boolean;
+  declare _preview: string[] | null;
 
-  // Only the list of ids: tiles update themselves on state changes.
-  #ids = new SelectorController(
+  #detachSort: (() => void) | undefined;
+
+  #orderKey(): string {
+    return `lights:${this.areaId ?? "home"}`;
+  }
+
+  #list = new SelectorController(
     this,
     () => this.ctx?.store,
-    (hass) => lightEntities(hass, this.areaId),
+    (hass) => {
+      const lights = applyOrder(
+        lightEntities(hass, this.areaId),
+        savedOrder(this.ctx.layout, this.#orderKey()),
+      );
+      const favs = this.home
+        ? favorites(this.ctx.user).filter((id) => hass.states[id] && isAutoVisible(hass, id))
+        : [];
+      if (!favs.length) return { mode: "lights" as Mode, ids: lights };
+      if (!this.ctx.editing) return { mode: "favorites" as Mode, ids: favs };
+      // Edit mode: favourites first, then everything else that could be starred.
+      return { mode: "favorites" as Mode, ids: [...favs, ...lights.filter((id) => !favs.includes(id))] };
+    },
   );
 
   #onCount = new SelectorController(
     this,
     () => this.ctx?.store,
-    (hass) => lightEntities(hass, this.areaId).filter((id) => hass.states[id]?.state === "on").length,
+    (hass) => (this.#list.value?.ids ?? []).filter((id) => hass.states[id]?.state === "on").length,
   );
 
   constructor() {
     super();
     this.heading = true;
     this.compact = false;
+    this.home = false;
+    this._preview = null;
   }
 
-  protected override willUpdate(): void {
-    this.#ids.attach();
+  protected override willUpdate(changed: PropertyValues<this>): void {
+    this.#list.attach();
+    if (changed.has("ctx")) this.#list.refresh();
     this.#onCount.attach();
+    this.#onCount.refresh();
+  }
+
+  protected override firstUpdated(): void {
+    this.#attachSort();
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    if (this.hasUpdated) this.#attachSort();
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.#detachSort?.();
+    this.#detachSort = undefined;
+  }
+
+  #attachSort(): void {
+    if (this.#detachSort) return;
+    this.#detachSort = attachSortable(this.renderRoot as ShadowRoot, {
+      container: () => this.renderRoot.querySelector(".grid"),
+      enabled: () => this.ctx.editing && this.#canReorder(),
+      order: () => this._preview ?? this.#list.value?.ids ?? [],
+      onPreview: (ids) => (this._preview = ids),
+      onDrop: (ids) => this.#saveOrder(ids),
+    });
+  }
+
+  #canReorder(): boolean {
+    return this.#list.value?.mode === "favorites" || this.ctx.isAdmin;
+  }
+
+  #saveOrder(ids: string[]): void {
+    const list = this.#list.value;
+    this._preview = null;
+    if (list?.mode === "favorites") {
+      const favs = favorites(this.ctx.user);
+      this.ctx.saveUser(
+        setFavoritesOrder(
+          this.ctx.user,
+          ids.filter((id) => favs.includes(id)),
+        ),
+      );
+    } else if (this.ctx.isAdmin) {
+      this.ctx.saveLayout(setOrder(this.ctx.layout, this.#orderKey(), ids));
+    }
   }
 
   protected override render() {
-    const ids = this.#ids.value ?? [];
+    const list = this.#list.value;
+    const ids = this._preview ?? list?.ids ?? [];
     if (!ids.length) return nothing;
-    const { store, t } = this.ctx;
+    const { store, t, editing, isAdmin, hiddenEntities, user } = this.ctx;
+    const favs = new Set(favorites(user));
+    const areaName = this.areaId ? store.hass?.areas[this.areaId]?.name : undefined;
+    const title = list?.mode === "favorites" ? t("section.favorites") : t("section.lights");
+    const count = this.#onCount.value ?? 0;
     return html`
       ${
         this.heading
           ? html`<div class="heading">
-              <h2 class="label">${t("section.lights")}</h2>
-              ${this.#onCount.value ? html`<span class="count">${this.#onCount.value} ${t("state.on").toLowerCase()}</span>` : nothing}
+              <h2 class="label">${title}</h2>
+              ${count ? html`<span class="count">${count} ${t("state.on").toLowerCase()}</span>` : nothing}
             </div>`
           : nothing
       }
@@ -64,13 +148,29 @@ export class AtriumLightsModule extends LitElement {
           ids,
           (id) => id,
           (id) =>
-            html`<atrium-light-tile
-              ?compact=${this.compact}
-              .areaName=${this.areaId ? this.ctx.store.hass?.areas[this.areaId]?.name : undefined}
-              .entityId=${id}
-              .store=${store}
-              .t=${t}
-            ></atrium-light-tile>`,
+            id.startsWith("light.")
+              ? html`<atrium-light-tile
+                  data-sort-id=${id}
+                  ?compact=${this.compact}
+                  .entityId=${id}
+                  .store=${store}
+                  .t=${t}
+                  .areaName=${areaName}
+                  ?editing=${editing}
+                  ?favorite=${favs.has(id)}
+                  ?atrium-hidden=${hiddenEntities.has(id)}
+                  ?canHide=${isAdmin}
+                ></atrium-light-tile>`
+              : html`<atrium-entity-tile
+                  data-sort-id=${id}
+                  .entityId=${id}
+                  .store=${store}
+                  .t=${t}
+                  ?editing=${editing}
+                  ?favorite=${favs.has(id)}
+                  ?atrium-hidden=${hiddenEntities.has(id)}
+                  ?canHide=${isAdmin}
+                ></atrium-entity-tile>`,
         )}
       </div>
     `;
@@ -93,6 +193,9 @@ export class AtriumLightsModule extends LitElement {
         font-size: 13px;
         font-weight: 600;
         color: var(--a-text2);
+      }
+      .grid {
+        position: relative;
       }
       .grid.compact {
         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));

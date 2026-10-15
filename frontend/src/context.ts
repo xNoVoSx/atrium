@@ -13,5 +13,15 @@ export interface PanelContext {
   isAdmin: boolean;
   /** Shared layout settings (admin overrides of the automatic layout). */
   layout: Record<string, unknown>;
+  /** The current user's own settings (favourites). */
+  user: Record<string, unknown>;
+  /** Edit mode: tiles show star/hide, can be dragged, do not switch. */
+  editing: boolean;
+  /** Entities hidden in Atrium (shown dimmed in edit mode). */
+  hiddenEntities: Set<string>;
   navigate: (route: PageRoute) => void;
+  /** Save shared layout (admins); the change comes back through the subscription. */
+  saveLayout: (layout: object) => void;
+  /** Save the user's own settings. */
+  saveUser: (settings: object) => void;
 }

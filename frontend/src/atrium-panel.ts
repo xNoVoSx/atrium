@@ -4,7 +4,8 @@ import type { AtriumSheet } from "./components/sheet";
 import type { PanelContext } from "./context";
 import { EntityStore } from "./data/entity-store";
 import { isAutoVisible } from "./data/registry";
-import { subscribeSettings, type AtriumSettings } from "./data/settings";
+import { hiddenAreas, hiddenEntities, setEntityHidden, toggleFavorite } from "./data/layout";
+import { saveLayout, saveUserSettings, subscribeSettings, type AtriumSettings } from "./data/settings";
 import { VersionWatch, loadedHash } from "./data/version-watch";
 import { translator, type MessageKey } from "./i18n";
 import { navSection, navigate as navigateTo, parseRoute, type PageRoute } from "./router";
@@ -47,6 +48,8 @@ export class AtriumPanel extends LitElement {
     _layout: { state: true },
     _pull: { state: true },
     _controlId: { state: true },
+    _user: { state: true },
+    _editing: { state: true },
   };
 
   declare narrow: boolean;
@@ -57,6 +60,8 @@ export class AtriumPanel extends LitElement {
   declare _pull: number;
   /** Entity shown in the sheet. */
   declare _controlId: string | null;
+  declare _user: Record<string, unknown>;
+  declare _editing: boolean;
 
   readonly store = new EntityStore();
   #hass: HomeAssistant | undefined;
@@ -77,6 +82,8 @@ export class AtriumPanel extends LitElement {
     this._layout = {};
     this._pull = 0;
     this._controlId = null;
+    this._user = {};
+    this._editing = false;
   }
 
   get hass(): HomeAssistant | undefined {
@@ -110,7 +117,7 @@ export class AtriumPanel extends LitElement {
     this.#detachPull = attachPullRefresh({
       target: this,
       scrollTop: () => document.scrollingElement?.scrollTop ?? 0,
-      enabled: () => this.narrow && !this.#control()?.open,
+      enabled: () => this.narrow && !this._editing && !this.#control()?.open,
       onPull: (d) => (this._pull = d),
       onRefresh: () => location.reload(),
     });
@@ -132,6 +139,7 @@ export class AtriumPanel extends LitElement {
     void this.#versionWatch.start();
     this.#unsubSettings = subscribeSettings(this.#hass, (settings: AtriumSettings) => {
       this._layout = settings.layout;
+      this._user = settings.user;
     });
     this.#unsubSettings.catch(() => undefined); // integration not loaded: defaults
   }
@@ -159,6 +167,29 @@ export class AtriumPanel extends LitElement {
     navigateTo(this.route?.prefix ?? "/atrium", route);
     window.scrollTo({ top: 0 });
   };
+
+  #saveLayout = (layout: object) => {
+    const hass = this.hass;
+    if (!hass?.user?.is_admin) return;
+    this._layout = layout as Record<string, unknown>; // show at once; the subscription confirms
+    void saveLayout(hass, this._layout);
+  };
+
+  #saveUser = (settings: object) => {
+    const hass = this.hass;
+    if (!hass) return;
+    this._user = settings as Record<string, unknown>;
+    void saveUserSettings(hass, this._user);
+  };
+
+  #onFavorite(ev: CustomEvent<{ entityId: string }>): void {
+    this.#saveUser(toggleFavorite(this._user, ev.detail.entityId));
+  }
+
+  #onHide(ev: CustomEvent<{ entityId: string }>): void {
+    const id = ev.detail.entityId;
+    this.#saveLayout(setEntityHidden(this._layout, id, !hiddenEntities(this._layout).has(id)));
+  }
 
   #onToggle(ev: CustomEvent<{ entityId: string }>): void {
     void this.hass?.callService("light", "toggle", { entity_id: ev.detail.entityId });
@@ -220,6 +251,9 @@ export class AtriumPanel extends LitElement {
   protected override willUpdate(): void {
     this.#applyTheme();
     const hass = this.hass;
+    const hidden = hiddenEntities(this._layout);
+    // In edit mode hidden things stay visible (dimmed) so they can come back.
+    this.store.setHidden(hidden, hiddenAreas(this._layout), !this._editing);
     this.#ctx = {
       store: this.store,
       t: translator(hass?.language),
@@ -227,7 +261,12 @@ export class AtriumPanel extends LitElement {
       narrow: this.narrow,
       isAdmin: Boolean(hass?.user?.is_admin),
       layout: this._layout,
+      user: this._user,
+      editing: this._editing,
+      hiddenEntities: hidden,
       navigate: this.#navigate,
+      saveLayout: this.#saveLayout,
+      saveUser: this.#saveUser,
     };
   }
 
@@ -309,10 +348,30 @@ export class AtriumPanel extends LitElement {
         <main
           @atrium-toggle=${this.#onToggle}
           @atrium-more-info=${this.#onMoreInfo}
+          @atrium-favorite=${this.#onFavorite}
+          @atrium-hide=${this.#onHide}
           style=${this._pull ? `transform: translateY(${this._pull * 0.4}px)` : ""}
         >
+          ${
+            this._editing
+              ? html`<div class="edit-hint">${ctx.t(ctx.isAdmin ? "edit.hint" : "edit.hint_user")}</div>`
+              : nothing
+          }
           ${this.#renderPage(route, ctx)}
         </main>
+        ${
+          route.page === "home" || route.page === "room"
+            ? html`<button
+                type="button"
+                class="edit-toggle ${this._editing ? "active" : ""}"
+                aria-pressed=${String(this._editing)}
+                @click=${() => (this._editing = !this._editing)}
+              >
+                ${icon(this._editing ? "M5 12l5 5L20 7" : "M4 20h4L19 9l-4-4L4 16zM14 6l4 4", 18, 2)}
+                <span>${ctx.t(this._editing ? "edit.done" : "edit.start")}</span>
+              </button>`
+            : nothing
+        }
       </div>
       ${this.#renderControl(ctx)}
     `;
@@ -444,6 +503,48 @@ export class AtriumPanel extends LitElement {
       }
       nav.rail a[aria-current="page"] {
         background: var(--a-panel2);
+      }
+
+      /* Edit mode */
+      .edit-toggle {
+        position: fixed;
+        right: 16px;
+        bottom: calc(84px + env(safe-area-inset-bottom));
+        z-index: 4;
+        min-height: 44px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--a-s3);
+        color: var(--a-text);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+      }
+      :host(:not([narrow])) .edit-toggle {
+        bottom: 24px;
+      }
+      .edit-toggle.active {
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+      }
+      .edit-toggle:focus-visible {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 2px;
+      }
+      .edit-hint {
+        margin-bottom: 14px;
+        padding: 10px 14px;
+        border-radius: var(--a-radius);
+        background: var(--a-s2);
+        color: var(--a-text2);
+        font-size: 13px;
+        font-weight: 600;
       }
 
       /* Pull to refresh */

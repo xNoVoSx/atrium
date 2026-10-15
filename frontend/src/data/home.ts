@@ -1,5 +1,6 @@
 // What the home page shows, derived from `hass`. Pure functions, unit tested.
 
+import { applyOrder } from "./layout";
 import { areaIdOf, friendlyName, isAutoVisible } from "./registry";
 import type { HassEntity, HomeAssistant } from "../types/hass";
 
@@ -167,8 +168,8 @@ export function areaTemperature(hass: HomeAssistant, areaId: string, entities?: 
   return climates.length ? climates.reduce((a, b) => a + b, 0) / climates.length : null;
 }
 
-export function rooms(hass: HomeAssistant): RoomSummary[] {
-  return Object.values(hass.areas)
+export function rooms(hass: HomeAssistant, order?: readonly string[]): RoomSummary[] {
+  const list = Object.values(hass.areas)
     .map((area) => {
       const ids = areaEntities(hass, area.area_id);
       return {
@@ -181,6 +182,12 @@ export function rooms(hass: HomeAssistant): RoomSummary[] {
     })
     .filter((r) => r.entityCount > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
+  if (!order?.length) return list;
+  const byId = new Map(list.map((r) => [r.areaId, r]));
+  return applyOrder(
+    list.map((r) => r.areaId),
+    order,
+  ).flatMap((id) => byId.get(id) ?? []);
 }
 
 // ---- lights ----
@@ -324,8 +331,9 @@ export function roomContent(hass: HomeAssistant, areaId: string): RoomContent {
 export function adjacentRooms(
   hass: HomeAssistant,
   areaId: string,
+  order?: readonly string[],
 ): { prev: string | null; next: string | null } {
-  const list = rooms(hass).map((r) => r.areaId);
+  const list = rooms(hass, order).map((r) => r.areaId);
   const i = list.indexOf(areaId);
   if (i < 0 || list.length < 2) return { prev: null, next: null };
   return {

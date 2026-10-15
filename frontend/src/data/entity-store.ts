@@ -12,7 +12,19 @@ import type { HassEntity, HomeAssistant } from "../types/hass";
 type Listener = () => void;
 
 export class EntityStore {
+  /** The view components read: raw hass with Atrium-hidden entities/areas applied. */
   #hass: HomeAssistant | undefined;
+  #raw: HomeAssistant | undefined;
+  #hiddenEntities = new Set<string>();
+  #hiddenAreas = new Set<string>();
+  #applyHidden = true;
+  // Memo so the derived maps keep their identity while nothing changes.
+  #memo: {
+    rawEntities?: HomeAssistant["entities"];
+    rawAreas?: HomeAssistant["areas"];
+    entities?: HomeAssistant["entities"];
+    areas?: HomeAssistant["areas"];
+  } = {};
   #entityListeners = new Map<string, Set<Listener>>();
   #structureListeners = new Set<Listener>();
   #anyListeners = new Set<Listener>();
@@ -21,8 +33,53 @@ export class EntityStore {
     return this.#hass;
   }
 
-  update(hass: HomeAssistant): void {
+  /** Home Assistant's object without Atrium's own hiding. */
+  get rawHass(): HomeAssistant | undefined {
+    return this.#raw;
+  }
+
+  /**
+   * Entities and areas hidden in Atrium. With apply=false (edit mode) they
+   * stay visible so they can be brought back.
+   */
+  setHidden(entities: Set<string>, areas: Set<string>, apply: boolean): void {
+    const same = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x));
+    if (
+      same(entities, this.#hiddenEntities) &&
+      same(areas, this.#hiddenAreas) &&
+      apply === this.#applyHidden
+    ) {
+      return;
+    }
+    this.#hiddenEntities = new Set(entities);
+    this.#hiddenAreas = new Set(areas);
+    this.#applyHidden = apply;
+    this.#memo = {};
+    if (this.#raw) this.update(this.#raw);
+  }
+
+  #derive(raw: HomeAssistant): HomeAssistant {
+    if (!this.#applyHidden || (!this.#hiddenEntities.size && !this.#hiddenAreas.size)) return raw;
+    const memo = this.#memo;
+    if (memo.rawEntities !== raw.entities || !memo.entities) {
+      const entities = { ...raw.entities };
+      for (const id of this.#hiddenEntities) {
+        entities[id] = { ...(entities[id] ?? { entity_id: id, labels: [] }), hidden: true };
+      }
+      memo.rawEntities = raw.entities;
+      memo.entities = entities;
+    }
+    if (memo.rawAreas !== raw.areas || !memo.areas) {
+      memo.rawAreas = raw.areas;
+      memo.areas = Object.fromEntries(Object.entries(raw.areas).filter(([id]) => !this.#hiddenAreas.has(id)));
+    }
+    return { ...raw, entities: memo.entities, areas: memo.areas };
+  }
+
+  update(raw: HomeAssistant): void {
+    this.#raw = raw;
     const prev = this.#hass;
+    const hass = this.#derive(raw);
     this.#hass = hass;
     if (!prev) {
       this.#notifyAll();
@@ -154,6 +211,11 @@ export class SelectorController<T> implements ReactiveController {
     if (!store) return;
     this.#unsubscribe = store.subscribeAny(() => this.#recompute(true));
     this.#recompute(false);
+  }
+
+  /** Recompute now, e.g. when inputs outside `hass` changed (settings, edit mode). */
+  refresh(): void {
+    if (this.#unsubscribe) this.#recompute(false);
   }
 
   #recompute(notify: boolean): void {

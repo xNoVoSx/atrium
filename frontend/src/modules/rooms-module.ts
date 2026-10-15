@@ -1,8 +1,9 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, type PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { rooms } from "../data/home";
+import { savedOrder } from "../data/layout";
 import { shared } from "../theme/shared";
 import { formatTemperature } from "../util/format";
 
@@ -22,7 +23,7 @@ export class AtriumRoomsModule extends LitElement {
     this,
     () => this.ctx?.store,
     (hass) =>
-      rooms(hass).map((r) => ({
+      rooms(hass, savedOrder(this.ctx.layout, "rooms")).map((r) => ({
         ...r,
         icon: hass.areas[r.areaId]?.icon ?? null,
         // Rounded here so tiny sensor changes do not re-render the grid.
@@ -36,8 +37,9 @@ export class AtriumRoomsModule extends LitElement {
     this.large = false;
   }
 
-  protected override willUpdate(): void {
+  protected override willUpdate(changed: PropertyValues<this>): void {
     this.#rooms.attach();
+    if (changed.has("ctx")) this.#rooms.refresh();
   }
 
   protected override render() {

@@ -54,3 +54,35 @@ describe("EntityStore", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 });
+
+describe("EntityStore hiding", () => {
+  it("hides Atrium-hidden entities and areas, but not in edit mode", () => {
+    const store = new EntityStore();
+    store.update(fakeHass());
+    const structure = vi.fn();
+    store.subscribeStructure(structure);
+
+    store.setHidden(new Set(["light.hall"]), new Set(["office"]), true);
+    expect(store.hass?.entities["light.hall"]?.hidden).toBe(true);
+    expect(store.hass?.areas.office).toBeUndefined();
+    expect(store.rawHass?.entities["light.hall"]?.hidden).toBeUndefined();
+    expect(structure).toHaveBeenCalled();
+
+    store.setHidden(new Set(["light.hall"]), new Set(["office"]), false);
+    expect(store.hass?.entities["light.hall"]?.hidden).toBeUndefined();
+    expect(store.hass?.areas.office).toBeDefined();
+  });
+
+  it("keeps the derived maps stable across state-only updates", () => {
+    const hass = fakeHass();
+    const store = new EntityStore();
+    store.update(hass);
+    store.setHidden(new Set(["light.hall"]), new Set(), true);
+    const entities = store.hass?.entities;
+    const structure = vi.fn();
+    store.subscribeStructure(structure);
+    store.update({ ...hass, states: { ...hass.states, "light.group": state("light.group", "off") } });
+    expect(store.hass?.entities).toBe(entities);
+    expect(structure).not.toHaveBeenCalled();
+  });
+});

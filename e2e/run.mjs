@@ -286,6 +286,40 @@ async function main() {
     await deskPage.waitForTimeout(400);
   }
 
+  // Non-admins: favourites yes, hiding and layout no.
+  await clickNav(deskPage, "settings");
+  await deskPage.waitForTimeout(400);
+  const adminParts = await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    return Boolean(deep(document, "[data-module]") || deep(document, "[data-area]"));
+  });
+  check("non-admin: no admin sections in settings", !adminParts);
+  await clickNav(deskPage, "home");
+  await deskPage.waitForTimeout(400);
+  const editActions = await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    deep(document, ".edit-toggle")?.click();
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        const tile = deep(document, "atrium-light-tile");
+        const n = tile?.shadowRoot.querySelectorAll(".edit-action").length ?? -1;
+        deep(document, ".edit-toggle")?.click();
+        resolve(n);
+      }, 400),
+    );
+  });
+  check("non-admin: star only, no hide", editActions === 1, `${editActions} buttons`);
+
   // Reloading the entry with an unchanged bundle must not reload open pages.
   await appPage.evaluate(() => (window.__e2eMarker = true));
   const [entry] = await adminRest(cfg, "config/config_entries/entry?domain=atrium");

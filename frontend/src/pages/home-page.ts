@@ -19,7 +19,7 @@ export class AtriumHomePage extends LitElement {
       case "climate":
         return html`<atrium-climate-module class="a" .ctx=${ctx}></atrium-climate-module>`;
       case "lights":
-        return html`<atrium-lights-module class="b" .ctx=${ctx} compact></atrium-lights-module>`;
+        return html`<atrium-lights-module class="b" .ctx=${ctx} compact home></atrium-lights-module>`;
       case "scenes":
         return html`<atrium-scenes-module class="a" .ctx=${ctx}></atrium-scenes-module>`;
       case "waste":
