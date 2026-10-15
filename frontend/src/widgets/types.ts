@@ -58,6 +58,8 @@ export interface WidgetDef {
   available: (hass: HomeAssistant) => boolean;
   /** Has a preview with sample data (shown in the catalogue). */
   demo?: boolean;
+  /** Shows nothing until set up (e.g. an entity chosen): the catalogue previews sample data. */
+  setup?: boolean;
   options?: OptionField[];
   /** Only one per page makes sense (e.g. header). */
   single?: boolean;

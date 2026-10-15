@@ -203,7 +203,7 @@ export class AtriumGraphWidget extends WidgetBase {
       ${
         path
           ? html`<svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-                ${svg`<path d=${area} class="area" /><path d=${path} class="line" pathLength="1" />`}
+                ${svg`<path d=${area} class="area" /><path d=${path} class="line"/>`}
               </svg>
               <div class="range"><span>${fmt(locale, min, 1)}</span><span>${fmt(locale, max, 1)}</span></div>`
           : html`<p class="empty">${this._points === null ? "…" : t("w.no_history")}</p>`
@@ -233,8 +233,17 @@ export class AtriumGraphWidget extends WidgetBase {
         stroke: var(--a-ocher);
         stroke-width: 2;
         vector-effect: non-scaling-stroke;
-        stroke-dasharray: 1;
-        animation: draw calc(var(--a-motion, 1) * 1.2s) ease-out both;
+      }
+      .graph {
+        animation: reveal calc(var(--a-motion, 1) * 1.2s) ease-out both;
+      }
+      @keyframes reveal {
+        from {
+          clip-path: inset(0 100% 0 0);
+        }
+        to {
+          clip-path: inset(0 0 0 0);
+        }
       }
       .area {
         fill: var(--a-ocher);
@@ -658,6 +667,306 @@ export class AtriumMediaWidget extends WidgetBase {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 8px;
+      }
+    `,
+  ];
+}
+
+// ---- one value as a tile ----
+
+export class AtriumStatWidget extends WidgetBase {
+  static override properties = { ...WidgetBase.properties, _pts: { state: true } };
+  declare _pts: number[];
+  #entity = new EntityController(this, () => this.ctx?.store);
+  #key = "";
+
+  constructor() {
+    super();
+    this._pts = [];
+  }
+
+  get #id(): string {
+    return str(this.options.entity);
+  }
+
+  protected override willUpdate(): void {
+    if (this.demo) {
+      this._pts = [19.8, 20.1, 20.4, 20.2, 20.9, 21.3, 21.2, 21.6];
+      return;
+    }
+    this.#entity.track(this.#id || undefined);
+    if (this.#id && this.#id !== this.#key && this.ctx?.store.hass) {
+      this.#key = this.#id;
+      void this.ctx.store.hass
+        .callWS<Record<string, Array<{ s: string }>>>({
+          type: "history/history_during_period",
+          start_time: new Date(Date.now() - 24 * 3600000).toISOString(),
+          entity_ids: [this.#id],
+          minimal_response: true,
+          no_attributes: true,
+        })
+        .then(
+          (r) => (this._pts = (r[this.#id] ?? []).map((p) => Number(p.s)).filter((n) => Number.isFinite(n))),
+        )
+        .catch(() => undefined);
+    }
+  }
+
+  override heading(): string {
+    const hass = this.ctx?.store.hass;
+    return this.config?.title || (this.#id && hass && !this.demo ? nameOf(hass, this.#id) : super.heading());
+  }
+
+  protected override render() {
+    if (!this.ctx) return nothing;
+    const s = this.#entity.state;
+    if (!s && !this.demo)
+      return this.ctx.editing
+        ? html`<div class="w missing">
+            ${this.renderHead()}
+            <p class="empty">${this.ctx.t("w.choose_entity")}</p>
+          </div>`
+        : nothing;
+    const value = this.demo ? 21.6 : num(s);
+    const unit = this.demo ? "°C" : unitOf(s);
+    const pts = [...this._pts, ...(value !== null ? [value] : [])];
+    const first = pts[0];
+    const trend = value !== null && first !== undefined ? value - first : 0;
+    const min = Math.min(...pts);
+    const max = Math.max(...pts);
+    const path =
+      pts.length > 1
+        ? pts
+            .map(
+              (v, i) =>
+                `${i ? "L" : "M"}${(i / (pts.length - 1)) * 100} ${30 - ((v - min) / (max - min || 1)) * 26}`,
+            )
+            .join(" ")
+        : "";
+    return html`<button type="button" class="w stat-tile" @click=${() => this.moreInfo(this.#id)}>
+      <span class="sl">${this.heading()}</span>
+      <span class="sv"
+        >${value === null ? (s?.state ?? "—") : fmt(this.ctx.locale, value, 1)}<small>${unit}</small>
+        ${Math.abs(trend) > 0.05 ? html`<span class="tr ${trend > 0 ? "up" : "down"}">${trend > 0 ? "↗" : "↘"}</span>` : nothing}</span
+      >
+      ${path ? html`<svg viewBox="0 0 100 32" preserveAspectRatio="none" class="spark">${svg`<path d=${path}/>`}</svg>` : nothing}
+    </button>`;
+  }
+
+  static override styles = [
+    widgetStyles,
+    css`
+      .stat-tile {
+        all: unset;
+        box-sizing: border-box;
+        width: 100%;
+        background: var(--a-s1);
+        border-radius: var(--a-radius);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        cursor: pointer;
+      }
+      .sl {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--a-text2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sv {
+        font-size: 36px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+      .sv small {
+        font-size: 15px;
+        color: var(--a-text2);
+      }
+      .tr {
+        font-size: 20px;
+        margin-left: auto;
+      }
+      .tr.up {
+        color: var(--a-ocher);
+      }
+      .tr.down {
+        color: var(--a-slate);
+      }
+      .spark {
+        width: 100%;
+        height: 32px;
+      }
+      .spark {
+        animation: reveal calc(var(--a-motion, 1) * 1s) ease-out both;
+      }
+      .spark path {
+        fill: none;
+        stroke: var(--a-ocher);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      @keyframes reveal {
+        from {
+          clip-path: inset(0 100% 0 0);
+        }
+        to {
+          clip-path: inset(0 0 0 0);
+        }
+      }
+      @keyframes draw {
+        from {
+          stroke-dashoffset: 1;
+        }
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+    `,
+  ];
+}
+
+// ---- one big button ----
+
+export class AtriumButtonWidget extends WidgetBase {
+  static override properties = { ...WidgetBase.properties, _done: { state: true } };
+  declare _done: boolean;
+  #entity = new EntityController(this, () => this.ctx?.store);
+  #timer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor() {
+    super();
+    this._done = false;
+  }
+
+  get #id(): string {
+    return str(this.options.entity);
+  }
+
+  protected override willUpdate(): void {
+    this.#entity.track(this.#id || undefined);
+  }
+
+  #press(): void {
+    const id = this.#id;
+    this._done = true;
+    clearTimeout(this.#timer);
+    this.#timer = setTimeout(() => (this._done = false), 1200);
+    if (this.demo || !id) return;
+    const domain = id.split(".")[0] ?? "";
+    if (domain === "scene" || domain === "script")
+      void this.ctx.store.hass?.callService(domain, "turn_on", { entity_id: id });
+    else if (domain === "button" || domain === "input_button")
+      void this.ctx.store.hass?.callService(domain, "press", { entity_id: id });
+    else this.toggle(id);
+  }
+
+  protected override render() {
+    if (!this.ctx) return nothing;
+    const s = this.#entity.state;
+    if (!s && !this.demo)
+      return this.ctx.editing
+        ? html`<div class="w missing">
+            ${this.renderHead()}
+            <p class="empty">${this.ctx.t("w.choose_entity")}</p>
+          </div>`
+        : nothing;
+    const hass = this.ctx.store.hass;
+    const label = this.config.title || (this.demo ? "Gute Nacht" : hass && s ? nameOf(hass, this.#id) : "");
+    const on = s?.state === "on";
+    const iconName = str(this.options.icon) || (s?.attributes.icon as string | undefined) || "";
+    const hasIcon = iconName && customElements.get("ha-icon");
+    return html`<button
+      type="button"
+      class="big ${on ? "on" : ""} ${this._done ? "done" : ""}"
+      @click=${() => this.#press()}
+    >
+      ${hasIcon ? html`<ha-icon .icon=${iconName}></ha-icon>` : html`<span class="glyph">✦</span>`}
+      <span class="bl">${label}</span>
+      ${
+        s && ["switch", "light", "input_boolean", "fan"].includes(this.#id.split(".")[0] ?? "")
+          ? html`<span class="bs">${on ? this.ctx.t("state.on") : this.ctx.t("state.off")}</span>`
+          : nothing
+      }
+    </button>`;
+  }
+
+  static override styles = [
+    widgetStyles,
+    css`
+      .big {
+        all: unset;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 110px;
+        border-radius: var(--a-radius);
+        background: var(--a-s1);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition:
+          background-color calc(var(--a-motion, 1) * 250ms),
+          transform calc(var(--a-motion, 1) * 120ms);
+      }
+      .big:active {
+        transform: scale(0.97);
+      }
+      .big:focus-visible {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 2px;
+      }
+      .big.on,
+      .big.done {
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+      }
+      .big.done::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 20px;
+        height: 20px;
+        margin: -10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.4);
+        animation: ripple calc(var(--a-motion, 1) * 700ms) ease-out forwards;
+      }
+      ha-icon {
+        --mdc-icon-size: 30px;
+      }
+      .glyph {
+        font-size: 26px;
+        color: var(--a-ocher);
+      }
+      .on .glyph,
+      .done .glyph {
+        color: inherit;
+      }
+      .bl {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .bs {
+        font-size: 13px;
+        opacity: 0.8;
+      }
+      @keyframes ripple {
+        to {
+          transform: scale(16);
+          opacity: 0;
+        }
       }
     `,
   ];

@@ -301,3 +301,15 @@ describe("doorbell", () => {
     expect(isRing("event.x", "a", "unavailable")).toBe(false);
   });
 });
+
+describe("catalogue completeness", () => {
+  it("every widget element is reachable from the catalogue", async () => {
+    const { ELEMENTS } = await import("../src/main");
+    const { readFileSync } = await import("node:fs");
+    const defs = ["core", "extra", "homelab"]
+      .map((f) => readFileSync(`${process.cwd()}/src/widgets/defs/${f}.ts`, "utf8"))
+      .join("\n");
+    const widgetTags = ELEMENTS.map(([tag]) => tag).filter((tag) => tag.endsWith("-widget"));
+    for (const tag of widgetTags) expect(defs.includes(`<${tag}`), tag).toBe(true);
+  });
+});

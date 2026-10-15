@@ -101,6 +101,8 @@ async function main() {
   await page.goto(`${cfg.haUrl}/atrium`);
   await waitFor(async () => (await readPanel(page))?.tiles.length > 0, { timeout: 30000 });
   const original = await ws(page, { type: "atrium/settings/get" });
+  // The test light is switched by some checks; put it back exactly (state and brightness).
+  const lightBefore0 = (await ws(page, { type: "get_states" })).find((x) => x.entity_id === cfg.testLight);
 
   try {
     // Start from the automatic layout with no favourites.
@@ -465,6 +467,15 @@ async function main() {
 
     check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
   } finally {
+    if (lightBefore0?.state === "on")
+      await ws(page, {
+        type: "call_service",
+        domain: "light",
+        service: "turn_on",
+        service_data: { entity_id: cfg.testLight, brightness: lightBefore0.attributes.brightness },
+      });
+    else if (lightBefore0?.state === "off")
+      await ws(page, { type: "call_service", domain: "light", service: "turn_off", service_data: { entity_id: cfg.testLight } });
     await ws(page, { type: "atrium/settings/set_layout", layout: original.layout });
     await ws(page, { type: "atrium/settings/set_user", settings: original.user });
     const now = await ws(page, { type: "atrium/settings/get" });

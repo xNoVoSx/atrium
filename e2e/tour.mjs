@@ -109,6 +109,17 @@ async function main() {
     await click(p, '[data-widget="schedules"] .ghost');
     await p.evaluate((d) => eval(d)(document, '[data-widget="schedules"]')?.scrollIntoView(), deep);
     await shot(p, "desk-picker-schedules", false);
+    for (const [w, q] of [["stat", "Wert"], ["button", "Knopf"], ["floorplan", "Grundriss"]]) {
+      await p.evaluate(({ d, q }) => {
+        const picker = eval(d)(document, "atrium-widget-picker");
+        const input = picker.shadowRoot.querySelector('input[type="search"]');
+        input.value = q;
+        input.dispatchEvent(new Event("input"));
+      }, { d: deep, q });
+      await p.waitForTimeout(300);
+      await p.evaluate(({ d, w }) => eval(d)(document, "atrium-widget-picker").shadowRoot.querySelector(`[data-widget="${w}"] .ghost`)?.click(), { d: deep, w });
+      await shot(p, `desk-picker-${w}`, false);
+    }
     await p.keyboard.press("Escape");
     await click(p, ".edit-toggle");
     await p.keyboard.press("Control+k");

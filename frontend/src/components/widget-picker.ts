@@ -99,7 +99,7 @@ export class AtriumWidgetPicker extends LitElement {
               ${
                 open
                   ? html`<div class="preview">
-                      ${w.render(this.ctx, { id: `preview-${w.type}`, type: w.type }, !ok)}
+                      ${w.render(this.ctx, { id: `preview-${w.type}`, type: w.type }, !ok || Boolean(w.setup))}
                     </div>`
                   : nothing
               }

@@ -2,6 +2,11 @@
 
 export const widgetsEn = {
   // groups
+  "wn.stat": "Value tile",
+  "wd.stat": "One value large, with its last 24 hours and a trend arrow.",
+  "wn.button": "Button",
+  "wd.button": "One big button: run a scene or script, or switch something.",
+  "wo.icon": "Icon (mdi:…)",
   "wo.tile_style": "Tile style",
   "wo.style_compact": "Compact",
   "wo.style_square": "Large squares",
@@ -315,6 +320,11 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wn.stat": "Wert-Kachel",
+  "wd.stat": "Ein Wert groß, mit den letzten 24 Stunden und Trendpfeil.",
+  "wn.button": "Knopf",
+  "wd.button": "Ein großer Knopf: Szene oder Skript starten oder etwas schalten.",
+  "wo.icon": "Symbol (mdi:…)",
   "wo.tile_style": "Kachel-Stil",
   "wo.style_compact": "Kompakt",
   "wo.style_square": "Große Quadrate",

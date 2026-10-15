@@ -38,6 +38,7 @@ function el(
     options?: OptionField[];
     integrations?: string[];
     demo?: boolean;
+    setup?: boolean;
   } = {},
 ): WidgetDef {
   return {
@@ -49,6 +50,7 @@ function el(
     size: extra.size ?? "m",
     minLevel: extra.minLevel ?? "standard",
     demo: extra.demo ?? true,
+    ...(extra.setup ? { setup: true } : {}),
     available,
     ...(extra.options ? { options: extra.options } : {}),
     ...(extra.integrations ? { integrations: extra.integrations } : {}),
@@ -372,12 +374,59 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     },
   ),
   el(
+    "stat",
+    (ctx, c, d) => html`<atrium-stat-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-stat-widget>`,
+    "custom",
+    WI.gauge,
+    () => true,
+    {
+      size: "s",
+      minLevel: "simple",
+      setup: true,
+      options: [
+        { key: "entity", label: "wo.entity", kind: "entity", domains: ["sensor", "input_number", "number"] },
+      ],
+    },
+  ),
+  el(
+    "button",
+    (ctx, c, d) => html`<atrium-button-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-button-widget>`,
+    "custom",
+    WI.toggle,
+    () => true,
+    {
+      size: "s",
+      minLevel: "simple",
+      setup: true,
+      options: [
+        {
+          key: "entity",
+          label: "wo.entity",
+          kind: "entity",
+          domains: [
+            "scene",
+            "script",
+            "switch",
+            "light",
+            "input_boolean",
+            "fan",
+            "button",
+            "input_button",
+            "automation",
+          ],
+        },
+        { key: "icon", label: "wo.icon", kind: "text", placeholder: "mdi:weather-night" },
+      ],
+    },
+  ),
+  el(
     "graph",
     (ctx, c, d) => html`<atrium-graph-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-graph-widget>`,
     "custom",
     WI.graph,
     () => true,
     {
+      setup: true,
       options: [
         { key: "entity", label: "wo.entity", kind: "entity", domains: ["sensor", "input_number", "number"] },
         { key: "hours", label: "wo.hours", kind: "number", min: 1, max: 168 },
@@ -391,6 +440,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     WI.gauge,
     () => true,
     {
+      setup: true,
       size: "s",
       options: [
         { key: "entity", label: "wo.entity", kind: "entity", domains: ["sensor", "input_number", "number"] },
@@ -407,6 +457,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     WI.note,
     () => true,
     {
+      setup: true,
       minLevel: "simple",
       options: [{ key: "text", label: "wo.text", kind: "text" }],
     },
@@ -418,6 +469,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     WI.link,
     () => true,
     {
+      setup: true,
       options: [{ key: "links", label: "wo.links", kind: "text", placeholder: "Energie | /energy" }],
     },
   ),
@@ -428,6 +480,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     WI.web,
     () => true,
     {
+      setup: true,
       minLevel: "expert",
       size: "l",
       options: [

@@ -41,6 +41,7 @@ import { AtriumSchedulesWidget } from "./widgets/elements/schedules";
 import { AtriumFloorplanWidget } from "./widgets/elements/floorplan";
 import { AtriumActivityWidget, AtriumEnergyFlowWidget, AtriumRoomCardWidget } from "./widgets/elements/more";
 import {
+  AtriumButtonWidget,
   AtriumCamerasWidget,
   AtriumEntitiesWidget,
   AtriumGaugeWidget,
@@ -48,6 +49,7 @@ import {
   AtriumLinksWidget,
   AtriumMediaWidget,
   AtriumNoteWidget,
+  AtriumStatWidget,
   AtriumWebWidget,
 } from "./widgets/elements/generic";
 import {
@@ -124,6 +126,8 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-energy-flow-widget", AtriumEnergyFlowWidget],
   ["atrium-entities-widget", AtriumEntitiesWidget],
   ["atrium-graph-widget", AtriumGraphWidget],
+  ["atrium-stat-widget", AtriumStatWidget],
+  ["atrium-button-widget", AtriumButtonWidget],
   ["atrium-gauge-widget", AtriumGaugeWidget],
   ["atrium-note-widget", AtriumNoteWidget],
   ["atrium-links-widget", AtriumLinksWidget],
