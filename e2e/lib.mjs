@@ -165,15 +165,20 @@ export const readPanel = (page) =>
   page.evaluate((findPanel) => {
     const panel = eval(findPanel);
     if (!panel?.shadowRoot) return null; // element not upgraded yet
-    const home = panel.shadowRoot.querySelector("atrium-home-page");
-    const tiles = [...(home?.shadowRoot.querySelectorAll("atrium-light-tile") ?? [])].map((t) => ({
+    const deep = (root, sel, out = []) => {
+      out.push(...root.querySelectorAll(sel));
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) deep(el.shadowRoot, sel, out);
+      return out;
+    };
+    const page = panel.shadowRoot.querySelector("main > *");
+    const tiles = deep(panel.shadowRoot, "atrium-light-tile").map((t) => ({
       entityId: t.entityId,
       state: t.getAttribute("state"),
       renders: t.renderCount,
     }));
     const control = panel.shadowRoot.querySelector("atrium-light-control");
     const surface = control?.shadowRoot?.querySelector(".surface");
-    if (!home?.shadowRoot || !surface) return null; // not rendered yet
+    if (!page?.shadowRoot || !surface) return null; // not rendered yet
     const rect = surface.getBoundingClientRect();
     return {
       version: panel.dataset.version,
@@ -184,7 +189,11 @@ export const readPanel = (page) =>
         .pop(),
       theme: panel.getAttribute("theme"),
       narrow: panel.hasAttribute("narrow"),
-      menuShown: getComputedStyle(panel.shadowRoot.querySelector(".menu")).display !== "none",
+      page: page.localName,
+      menuShown: Boolean(panel.shadowRoot.querySelector('nav [data-nav="menu"]')),
+      nav: panel.shadowRoot.querySelector("nav")?.className,
+      // Labels in the navigation must not run into each other or be cut off.
+      navLabelsFit: [...panel.shadowRoot.querySelectorAll("nav span")].every((s) => s.scrollWidth <= s.clientWidth + 1),
       tiles,
       control: {
         open: control.hasAttribute("open"),
@@ -200,29 +209,59 @@ export const readPanel = (page) =>
 export const tileButton = (page, entityId) =>
   page.evaluateHandle(
     ({ findPanel, entityId }) => {
-      const panel = eval(findPanel);
-      const home = panel.shadowRoot.querySelector("atrium-home-page");
-      return home.shadowRoot.querySelector(`atrium-light-tile[entity-id="${entityId}"]`).shadowRoot.querySelector("button");
+      const find = (root) => {
+        const hit = root.querySelector(`atrium-light-tile[entity-id="${entityId}"]`);
+        if (hit) return hit;
+        for (const el of root.querySelectorAll("*")) {
+          if (el.shadowRoot) {
+            const x = find(el.shadowRoot);
+            if (x) return x;
+          }
+        }
+        return null;
+      };
+      return find(eval(findPanel).shadowRoot).shadowRoot.querySelector("button");
     },
     { findPanel: FIND_PANEL, entityId },
   );
 
-export const clickThemeButton = (page, theme) =>
+/** Click a navigation entry (home, rooms, categories, settings, menu). */
+export const clickNav = (page, id) =>
   page.evaluate(
-    ({ findPanel, theme }) => eval(findPanel).shadowRoot.querySelector(`.seg button[data-theme="${theme}"]`).click(),
+    ({ findPanel, id }) => eval(findPanel).shadowRoot.querySelector(`nav [data-nav="${id}"]`).click(),
+    { findPanel: FIND_PANEL, id },
+  );
+
+/** Switch the theme on the settings page and return to the home page. */
+export async function clickThemeButton(page, theme) {
+  await clickNav(page, "settings");
+  await page.waitForTimeout(300);
+  await page.evaluate(
+    ({ findPanel, theme }) =>
+      eval(findPanel)
+        .shadowRoot.querySelector("atrium-settings-page")
+        .shadowRoot.querySelector(`.seg button[data-theme="${theme}"]`)
+        .click(),
     { findPanel: FIND_PANEL, theme },
   );
+  await clickNav(page, "home");
+  await page.waitForTimeout(300);
+}
 
 export const plantStyle = (page, cssText) =>
   page.evaluate(
     ({ findPanel, cssText }) => {
       const panel = eval(findPanel);
-      panel.shadowRoot.getElementById("e2e-planted")?.remove();
+      // Plant into the header module (deepest common place with text).
+      const root = panel.shadowRoot
+        .querySelector("atrium-home-page")
+        .shadowRoot.querySelector("atrium-header-module").shadowRoot;
+      root.getElementById("e2e-planted")?.remove();
       if (!cssText) return;
       const style = document.createElement("style");
       style.id = "e2e-planted";
       style.textContent = cssText;
-      panel.shadowRoot.append(style);
+      root.append(style);
     },
     { findPanel: FIND_PANEL, cssText },
   );

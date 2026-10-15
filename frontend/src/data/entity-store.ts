@@ -15,6 +15,7 @@ export class EntityStore {
   #hass: HomeAssistant | undefined;
   #entityListeners = new Map<string, Set<Listener>>();
   #structureListeners = new Set<Listener>();
+  #anyListeners = new Set<Listener>();
 
   get hass(): HomeAssistant | undefined {
     return this.#hass;
@@ -35,6 +36,7 @@ export class EntityStore {
     for (const [entityId, listeners] of this.#entityListeners) {
       if (prev.states[entityId] !== hass.states[entityId]) listeners.forEach((fn) => fn());
     }
+    if (structureChanged || prev.states !== hass.states) this.#anyListeners.forEach((fn) => fn());
   }
 
   state(entityId: string): HassEntity | undefined {
@@ -56,7 +58,14 @@ export class EntityStore {
     return () => this.#structureListeners.delete(fn);
   }
 
+  /** Called on every change; pair with a selector that decides whether it matters. */
+  subscribeAny(fn: Listener): () => void {
+    this.#anyListeners.add(fn);
+    return () => this.#anyListeners.delete(fn);
+  }
+
   #notifyAll(): void {
+    this.#anyListeners.forEach((fn) => fn());
     this.#structureListeners.forEach((fn) => fn());
     this.#entityListeners.forEach((set) => set.forEach((fn) => fn()));
   }
@@ -114,5 +123,53 @@ export class StructureController implements ReactiveController {
   hostDisconnected(): void {
     this.#unsubscribe?.();
     this.#unsubscribe = undefined;
+  }
+}
+
+/**
+ * Derives a value from `hass` and re-renders its host only when that value
+ * changes (compared as JSON). For modules that depend on many entities.
+ */
+export class SelectorController<T> implements ReactiveController {
+  #unsubscribe: (() => void) | undefined;
+  #value: T | undefined;
+  #key = "";
+
+  constructor(
+    private readonly host: ReactiveControllerHost,
+    private readonly store: () => EntityStore | undefined,
+    private readonly select: (hass: HomeAssistant) => T,
+  ) {
+    host.addController(this);
+  }
+
+  get value(): T | undefined {
+    return this.#value;
+  }
+
+  /** Call from the host's willUpdate once the store is known. */
+  attach(): void {
+    if (this.#unsubscribe) return;
+    const store = this.store();
+    if (!store) return;
+    this.#unsubscribe = store.subscribeAny(() => this.#recompute(true));
+    this.#recompute(false);
+  }
+
+  #recompute(notify: boolean): void {
+    const hass = this.store()?.hass;
+    if (!hass) return;
+    const value = this.select(hass);
+    const key = JSON.stringify(value);
+    if (key === this.#key) return;
+    this.#key = key;
+    this.#value = value;
+    if (notify) this.host.requestUpdate();
+  }
+
+  hostDisconnected(): void {
+    this.#unsubscribe?.();
+    this.#unsubscribe = undefined;
+    this.#key = "";
   }
 }

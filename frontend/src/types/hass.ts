@@ -44,6 +44,8 @@ export interface AreaRegistryEntry {
   name: string;
   floor_id?: string | null;
   icon?: string | null;
+  temperature_entity_id?: string | null;
+  humidity_entity_id?: string | null;
 }
 
 export interface CurrentUser {
@@ -62,6 +64,7 @@ export interface HomeAssistant {
   user?: CurrentUser;
   themes: { darkMode: boolean };
   language: string;
+  locale?: { language: string };
   config: HassConfig;
   auth: { external?: unknown };
   callService(

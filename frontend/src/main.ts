@@ -3,16 +3,40 @@
 import { AtriumPanel } from "./atrium-panel";
 import { AtriumLightControl } from "./components/light-control";
 import { AtriumLightTile } from "./components/light-tile";
+import { AtriumClimateModule } from "./modules/climate-module";
+import { AtriumHeaderModule } from "./modules/header-module";
+import { AtriumLightsModule } from "./modules/lights-module";
+import { AtriumRoomsModule } from "./modules/rooms-module";
+import { AtriumScenesModule } from "./modules/scenes-module";
+import { AtriumStatusModule } from "./modules/status-module";
 import { AtriumHomePage } from "./pages/home-page";
+import { AtriumRoomPage } from "./pages/room-page";
+import {
+  AtriumCategoriesPage,
+  AtriumCategoryPage,
+  AtriumRoomsPage,
+  AtriumSettingsPage,
+} from "./pages/simple-pages";
 
-const elements: Array<[string, CustomElementConstructor]> = [
+export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-light-tile", AtriumLightTile],
   ["atrium-light-control", AtriumLightControl],
+  ["atrium-header-module", AtriumHeaderModule],
+  ["atrium-status-module", AtriumStatusModule],
+  ["atrium-climate-module", AtriumClimateModule],
+  ["atrium-lights-module", AtriumLightsModule],
+  ["atrium-scenes-module", AtriumScenesModule],
+  ["atrium-rooms-module", AtriumRoomsModule],
   ["atrium-home-page", AtriumHomePage],
+  ["atrium-rooms-page", AtriumRoomsPage],
+  ["atrium-room-page", AtriumRoomPage],
+  ["atrium-categories-page", AtriumCategoriesPage],
+  ["atrium-category-page", AtriumCategoryPage],
+  ["atrium-settings-page", AtriumSettingsPage],
   ["atrium-panel", AtriumPanel],
 ];
 
 // A new module URL (?v=) can load this file a second time in the same page.
-for (const [name, ctor] of elements) {
+for (const [name, ctor] of ELEMENTS) {
   if (!customElements.get(name)) customElements.define(name, ctor);
 }

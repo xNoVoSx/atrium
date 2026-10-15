@@ -70,3 +70,9 @@ export function groupByArea(hass: HomeAssistant, domain: string): AreaGroup[] {
       return areaName(a.areaId).localeCompare(areaName(b.areaId));
     });
 }
+
+/** Friendly name of an entity, or its id when it has no state. */
+export function nameOf(hass: HomeAssistant, entityId: string): string {
+  const s = hass.states[entityId];
+  return s ? friendlyName(s) : entityId;
+}

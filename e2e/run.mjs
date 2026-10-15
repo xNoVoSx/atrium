@@ -13,6 +13,7 @@ import {
   adminRest,
   adminWs,
   browserProxy,
+  clickNav,
   clickThemeButton,
   companionAppBridge,
   contrastIssues,
@@ -110,6 +111,9 @@ async function main() {
   check("app mode talks to the external bus", (await appPage.evaluate(() => window.__busLog)).includes("config/get"));
   check("app is narrow, desktop is not", appPanel.narrow && !deskPanel.narrow);
   check("menu button only on narrow screens", appPanel.menuShown && !deskPanel.menuShown);
+  check("phone: bottom navigation, desktop: rail", appPanel.nav === "bottom" && deskPanel.nav === "rail");
+  check("navigation labels fit", appPanel.navLabelsFit && deskPanel.navLabelsFit);
+  check("home page is shown first", appPanel.page === "atrium-home-page" && deskPanel.page === "atrium-home-page");
 
   for (const [name, panel] of [
     ["app", appPanel],
@@ -204,7 +208,7 @@ async function main() {
     check(`${theme}: text contrast (WCAG AA)`, issues.length === 0, issues.slice(0, 6).join(", "));
     await deskPage.screenshot({ path: `${SHOTS}desktop-${theme}.png` });
     if (theme === "light") {
-      await plantStyle(deskPage, ".seg button { color: #dfe1de !important; }");
+      await plantStyle(deskPage, ".date { color: #dfe1de !important; }");
       check("contrast check detects a planted failure", (await contrastIssues(deskPage)).length > 0);
       await plantStyle(deskPage, null);
     }
@@ -212,6 +216,26 @@ async function main() {
     await deskPage.waitForTimeout(400);
   }
   await clickThemeButton(deskPage, "auto");
+
+  // Navigation: rooms overview -> a room -> back home, in app mode.
+  await clickNav(appPage, "rooms");
+  await waitFor(async () => (await readPanel(appPage))?.page === "atrium-rooms-page", { timeout: 5000 });
+  const roomHref = await appPage.evaluate(() => {
+    const find = (root) => {
+      const hit = root.querySelector("atrium-rooms-module");
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = find(el.shadowRoot); if (x) return x; }
+      return null;
+    };
+    const link = find(document).shadowRoot.querySelector("a");
+    link.click();
+    return link.getAttribute("href");
+  });
+  const onRoom = await waitFor(async () => (await readPanel(appPage))?.page === "atrium-room-page", { timeout: 5000 });
+  check("rooms -> room page", onRoom != null && appPage.url().endsWith(roomHref), roomHref);
+  await appPage.screenshot({ path: `${SHOTS}app-room.png`, fullPage: true });
+  await clickNav(appPage, "home");
+  check("back to home", (await waitFor(async () => (await readPanel(appPage))?.page === "atrium-home-page")) != null);
 
   // Reloading the entry with an unchanged bundle must not reload open pages.
   await appPage.evaluate(() => (window.__e2eMarker = true));

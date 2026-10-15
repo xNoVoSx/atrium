@@ -1,92 +1,62 @@
 import { LitElement, css, html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { StructureController, type EntityStore } from "../data/entity-store";
-import { groupByArea } from "../data/registry";
-import type { Translate } from "../i18n";
+import type { PanelContext } from "../context";
+import { homeModules, type HomeModule } from "../data/layout";
 
-/**
- * Home page of the skeleton: all visible lights grouped by area. Re-renders
- * only when the structure changes; tiles update themselves.
- */
+/** Home page: the modules from the layout, one column on phones, two on wide screens. */
 export class AtriumHomePage extends LitElement {
-  static override properties = {
-    store: { attribute: false },
-    t: { attribute: false },
-  };
+  static override properties = { ctx: { attribute: false } };
 
-  declare store: EntityStore | undefined;
-  declare t: Translate;
+  declare ctx: PanelContext;
 
-  #structure = new StructureController(this, () => this.store);
-
-  protected override willUpdate(): void {
-    this.#structure.attach();
+  #module(id: HomeModule) {
+    const ctx = this.ctx;
+    switch (id) {
+      case "header":
+        return html`<atrium-header-module class="wide" .ctx=${ctx}></atrium-header-module>`;
+      case "status":
+        return html`<atrium-status-module class="wide" .ctx=${ctx}></atrium-status-module>`;
+      case "climate":
+        return html`<atrium-climate-module class="a" .ctx=${ctx}></atrium-climate-module>`;
+      case "lights":
+        return html`<atrium-lights-module class="b" .ctx=${ctx}></atrium-lights-module>`;
+      case "scenes":
+        return html`<atrium-scenes-module class="a" .ctx=${ctx}></atrium-scenes-module>`;
+      case "rooms":
+        return html`<atrium-rooms-module class="b" .ctx=${ctx}></atrium-rooms-module>`;
+    }
   }
 
   protected override render() {
-    const hass = this.store?.hass;
-    if (!hass) return html``;
-    const groups = groupByArea(hass, "light");
-    return html`
-      <h2 class="label">${this.t("section.lights")}</h2>
-      ${repeat(
-        groups,
-        (g) => g.areaId ?? "",
-        (g) => html`
-          <section>
-            <h3>${g.areaId ? (hass.areas[g.areaId]?.name ?? g.areaId) : this.t("area.none")}</h3>
-            <div class="grid">
-              ${repeat(
-                g.entityIds,
-                (id) => id,
-                (id) =>
-                  html`<atrium-light-tile
-                    .entityId=${id}
-                    .store=${this.store}
-                    .t=${this.t}
-                  ></atrium-light-tile>`,
-              )}
-            </div>
-          </section>
-        `,
-      )}
-      <p class="hint">${this.t("hint.controls")}</p>
-    `;
+    return html`${repeat(
+      homeModules(this.ctx.layout),
+      (id) => id,
+      (id) => this.#module(id),
+    )}`;
   }
 
   static override styles = css`
     :host {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .label {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--a-text2);
-    }
-    section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    h3 {
-      margin: 6px 0 0;
-      font-size: 15px;
-      font-weight: 600;
-    }
-    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
     }
-    .hint {
-      margin: 0;
-      font-size: 13px;
-      color: var(--a-text2);
+    @media (min-width: 900px) {
+      :host {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-auto-flow: row dense;
+        column-gap: 20px;
+      }
+      .wide {
+        grid-column: 1 / -1;
+      }
+      .a {
+        grid-column: 1;
+      }
+      .b {
+        grid-column: 2;
+      }
     }
   `;
 }
