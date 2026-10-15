@@ -229,6 +229,50 @@ async function main() {
     );
     await panelClick(page, ".edit-toggle");
 
+    // Room page: drag the first device behind the second.
+    const deviceRoom = await page.evaluate(async (deep) => {
+      const hass = document.querySelector("home-assistant").hass;
+      for (const area of Object.keys(hass.areas)) {
+        history.pushState(null, "", `/atrium/room/${area}`);
+        window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+        await new Promise((r) => setTimeout(r, 300));
+        const list = eval(deep)(document, "atrium-entity-list");
+        if ((list?.shadowRoot.querySelectorAll("[data-sort-id]").length ?? 0) >= 2) return area;
+      }
+      return null;
+    }, deep);
+    check("a room with two devices exists", deviceRoom != null, deviceRoom ?? "");
+    if (deviceRoom) {
+      await panelClick(page, ".edit-toggle");
+      await page.waitForTimeout(300);
+      const items = await page.evaluate((deep) => {
+        const list = eval(deep)(document, "atrium-entity-list");
+        return [...list.shadowRoot.querySelectorAll("[data-sort-id]")].slice(0, 2).map((el) => {
+          const r = el.getBoundingClientRect();
+          return { id: el.dataset.sortId, x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+        });
+      }, deep);
+      const [d1, d2] = items;
+      await page.mouse.move(d1.x - d1.w / 4, d1.y);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++)
+        await page.mouse.move(d1.x + ((d2.x + d2.w / 3 - d1.x) * i) / 12, d1.y + ((d2.y - d1.y) * i) / 12);
+      await page.mouse.up();
+      const key = `devices:${deviceRoom}`;
+      const devSaved = await waitFor(
+        async () => (await ws(page, { type: "atrium/settings/get" })).layout.order?.[key],
+        { timeout: 5000 },
+      );
+      const devOrder = (await ws(page, { type: "atrium/settings/get" })).layout.order?.[key] ?? [];
+      check(
+        "drag reorders devices on a room page",
+        devSaved != null && devOrder[0] === d2.id && devOrder[1] === d1.id,
+        devOrder.slice(0, 2).join(", "),
+      );
+      await page.screenshot({ path: `${SHOTS}edit-room-devices.png`, fullPage: true });
+      await panelClick(page, ".edit-toggle");
+    }
+
     check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
   } finally {
     await ws(page, { type: "atrium/settings/set_layout", layout: original.layout });

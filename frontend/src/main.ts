@@ -2,6 +2,7 @@
 
 import { AtriumPanel } from "./atrium-panel";
 import { AtriumClimateBody } from "./components/climate-body";
+import { AtriumEntityList } from "./components/entity-list";
 import { AtriumEntityTile } from "./components/entity-tile";
 import { AtriumLightBody } from "./components/light-body";
 import { AtriumSheet } from "./components/sheet";
@@ -31,6 +32,7 @@ import {
 export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-light-tile", AtriumLightTile],
   ["atrium-entity-tile", AtriumEntityTile],
+  ["atrium-entity-list", AtriumEntityList],
   ["atrium-sheet", AtriumSheet],
   ["atrium-light-body", AtriumLightBody],
   ["atrium-climate-body", AtriumClimateBody],

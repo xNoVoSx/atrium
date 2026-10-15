@@ -4,7 +4,7 @@ import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { adjacentRooms, areaTemperature, roomContent, rooms } from "../data/home";
-import { favorites, savedOrder } from "../data/layout";
+import { savedOrder } from "../data/layout";
 import { nameOf, withoutArea } from "../data/registry";
 import type { MessageKey, Translate } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
@@ -92,6 +92,8 @@ export class AtriumRoomPage extends LitElement {
     this.#detachSwipe = attachSwipe(this, {
       onLeft: () => this.#go("next"),
       onRight: () => this.#go("prev"),
+      // In edit mode a held tile is dragged, not swiped; the arrows still work.
+      enabled: () => !this.ctx.editing,
     });
     window.addEventListener("keydown", this.#onKey);
   }
@@ -150,8 +152,7 @@ export class AtriumRoomPage extends LitElement {
   protected override render() {
     const room = this.#room.value;
     if (!room) return nothing;
-    const { t, locale, store } = this.ctx;
-    const favs = new Set(favorites(this.ctx.user));
+    const { t, locale } = this.ctx;
     const c = room.content;
     const hasIcon = room.icon && customElements.get("ha-icon");
     return html`
@@ -213,22 +214,11 @@ export class AtriumRoomPage extends LitElement {
           c.devices.length
             ? this.#section(
                 "room.devices",
-                html`<div class="list">
-                  ${repeat(
-                    c.devices,
-                    (id) => id,
-                    (id) =>
-                      html`<atrium-entity-tile
-                        .entityId=${id}
-                        .store=${store}
-                        .t=${t}
-                        ?editing=${this.ctx.editing}
-                        ?favorite=${favs.has(id)}
-                        ?atrium-hidden=${this.ctx.hiddenEntities.has(id)}
-                        ?canHide=${this.ctx.isAdmin}
-                      ></atrium-entity-tile>`,
-                  )}
-                </div>`,
+                html`<atrium-entity-list
+                  .ctx=${this.ctx}
+                  .ids=${c.devices}
+                  order-key="devices:${this.areaId}"
+                ></atrium-entity-list>`,
               )
             : nothing
         }
@@ -236,22 +226,11 @@ export class AtriumRoomPage extends LitElement {
           c.media.length
             ? this.#section(
                 "room.media",
-                html`<div class="list">
-                  ${repeat(
-                    c.media,
-                    (id) => id,
-                    (id) =>
-                      html`<atrium-entity-tile
-                        .entityId=${id}
-                        .store=${store}
-                        .t=${t}
-                        ?editing=${this.ctx.editing}
-                        ?favorite=${favs.has(id)}
-                        ?atrium-hidden=${this.ctx.hiddenEntities.has(id)}
-                        ?canHide=${this.ctx.isAdmin}
-                      ></atrium-entity-tile>`,
-                  )}
-                </div>`,
+                html`<atrium-entity-list
+                  .ctx=${this.ctx}
+                  .ids=${c.media}
+                  order-key="media:${this.areaId}"
+                ></atrium-entity-list>`,
               )
             : nothing
         }
@@ -400,16 +379,6 @@ export class AtriumRoomPage extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
-      }
-      .list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-        gap: 8px;
-      }
-      @media (max-width: 600px) {
-        .list {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
       }
       .chips {
         display: grid;
