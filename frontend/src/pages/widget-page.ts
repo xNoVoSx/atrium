@@ -66,6 +66,7 @@ export class AtriumWidgetPage extends LitElement {
     super();
     this.pageId = HOME_PAGE;
     this.embedded = false;
+    this.addEventListener("atrium-widget-options", this.#onOptions as EventListener);
     this._preview = null;
     this._editing = null;
     this._picking = false;
@@ -221,6 +222,15 @@ export class AtriumWidgetPage extends LitElement {
       </button>
     </div>`;
   }
+
+  /** A widget changed its own options (e.g. markers dragged on a floor plan). */
+  #onOptions = (ev: CustomEvent<{ id: string; options: Record<string, unknown> }>) => {
+    ev.stopPropagation();
+    if (!this.ctx.isAdmin) return;
+    this.ctx.saveLayout(
+      updateWidget(this.ctx.layout, this.pageId, ev.detail.id, { options: ev.detail.options }),
+    );
+  };
 
   #slot(w: WidgetInstance, canEdit: boolean) {
     const { t } = this.ctx;

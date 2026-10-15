@@ -2,6 +2,13 @@
 
 export const widgetsEn = {
   // groups
+  "wn.floorplan": "Floor plan",
+  "wd.floorplan": "Your plan (an image) with devices on it: tap to switch, drag to place in edit mode.",
+  "wo.image": "Image address (e.g. /local/floorplan.png)",
+  "wo.ratio": "Width : height (e.g. 1.6)",
+  "fp.drag_hint": "drag to move",
+  "fp.add_hint": "Add devices below, then drag them to their place.",
+  "fp.empty": "No devices placed yet.",
   "wn.energyflow": "Energy flow",
   "wd.energyflow": "Live: solar → inverter → house → consumers, animated.",
   "wn.activity": "What happened",
@@ -287,6 +294,14 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wn.floorplan": "Grundriss",
+  "wd.floorplan":
+    "Dein Plan (ein Bild) mit Geräten darauf: tippen schaltet, im Bearbeiten-Modus an ihren Platz ziehen.",
+  "wo.image": "Bildadresse (z. B. /local/grundriss.png)",
+  "wo.ratio": "Breite : Höhe (z. B. 1,6)",
+  "fp.drag_hint": "zum Verschieben ziehen",
+  "fp.add_hint": "Unten Geräte hinzufügen und dann an ihren Platz ziehen.",
+  "fp.empty": "Noch keine Geräte platziert.",
   "wn.energyflow": "Energiefluss",
   "wd.energyflow": "Live: Sonne → Wechselrichter → Haus → Verbraucher, animiert.",
   "wn.activity": "Was ist passiert",

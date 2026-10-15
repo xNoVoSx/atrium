@@ -600,6 +600,26 @@ export class AtriumSettingsPage extends LitElement {
         </div>
         <p class="hint">${t("settings.motion_hint")}</p>
       </section>
+      ${
+        document.fullscreenEnabled
+          ? html`<section>
+              <h2 class="label">${t("settings.fullscreen")}</h2>
+              <div>
+                <button
+                  type="button"
+                  class="text"
+                  @click=${() =>
+                    document.fullscreenElement
+                      ? void document.exitFullscreen()
+                      : void document.documentElement.requestFullscreen().catch(() => undefined)}
+                >
+                  ${t("settings.fullscreen_toggle")}
+                </button>
+              </div>
+              <p class="hint">${t("settings.fullscreen_hint")}</p>
+            </section>`
+          : nothing
+      }
       <section>
         <h2 class="label">${t("settings.saver")}</h2>
         <div class="seg" role="group" aria-label=${t("settings.saver")}>

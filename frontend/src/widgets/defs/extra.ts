@@ -173,6 +173,23 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     },
   ),
 
+  el(
+    "floorplan",
+    (ctx, c, d) =>
+      html`<atrium-floorplan-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-floorplan-widget>`,
+    "overview",
+    WI.rooms,
+    () => true,
+    {
+      size: "l",
+      minLevel: "simple",
+      options: [
+        { key: "image", label: "wo.image", kind: "url", placeholder: "/local/floorplan.png" },
+        { key: "ratio", label: "wo.ratio", kind: "number", min: 0.5, max: 4 },
+      ],
+    },
+  ),
+
   // household
   el(
     "covers",

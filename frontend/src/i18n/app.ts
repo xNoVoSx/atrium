@@ -2,6 +2,9 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "settings.fullscreen": "Full screen",
+  "settings.fullscreen_toggle": "Full screen on / off",
+  "settings.fullscreen_hint": "Hides the browser bars, e.g. on a wall tablet. Escape leaves it.",
   "settings.tab_doorbell": "Doorbell",
   "settings.doorbell": "Doorbell popup",
   "settings.doorbell_hint": "When someone rings, every open Atrium screen shows the door camera for a while.",
@@ -150,6 +153,10 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "settings.fullscreen": "Vollbild",
+  "settings.fullscreen_toggle": "Vollbild an / aus",
+  "settings.fullscreen_hint":
+    "Blendet die Leisten des Browsers aus, z. B. am Wand-Tablet. Escape beendet es.",
   "settings.tab_doorbell": "Klingel",
   "settings.doorbell": "Klingel-Popup",
   "settings.doorbell_hint":

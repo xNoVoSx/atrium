@@ -2,6 +2,7 @@
 // clock, sun, notifications.
 
 import { css, html, nothing, type PropertyValues } from "lit";
+import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
 import { SelectorController } from "../../data/entity-store";
 import { weatherEntity } from "../../data/home";
@@ -532,7 +533,7 @@ export class AtriumTodoWidget extends WidgetBase {
       ${this.renderHead(`${open.length}`)}
       <form class="add" @submit=${this.#add}>
         <input
-          .value=${this._draft}
+          .value=${live(this._draft)}
           @input=${(e: Event) => (this._draft = (e.target as HTMLInputElement).value)}
           placeholder=${t("w.add_item")}
           aria-label=${t("w.add_item")}

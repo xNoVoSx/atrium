@@ -366,6 +366,63 @@ async function main() {
     check("simple level hides categories", !navSimple.includes("categories") && navSimple.includes("home"), navSimple.join(","));
     await ws(page, { type: "atrium/settings/set_user", settings: {} });
 
+    // Floor plan: add it, place the test light, drag it, tap it outside edit mode.
+    await clickNav(page, "home");
+    await page.waitForTimeout(400);
+    await panelClick(page, ".edit-toggle");
+    await page.waitForTimeout(300);
+    await panelClick(page, ".add-widget");
+    await page.waitForTimeout(400);
+    await panelClick(page, '[data-widget="floorplan"] .add');
+    await page.waitForTimeout(600);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    const homeWidgets = async () => (await ws(page, { type: "atrium/settings/get" })).layout.pages.home.widgets;
+    const planId = (await homeWidgets()).find((w) => w.type === "floorplan")?.id;
+    check("floor plan widget is added", Boolean(planId));
+    await page.evaluate(({ d, light }) => {
+      const plan = eval(d)(document, "atrium-floorplan-widget");
+      const input = plan.shadowRoot.querySelector(".add input");
+      input.value = light;
+      input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      plan.shadowRoot.querySelector(".add button").click();
+    }, { d: deep, light: cfg.testLight });
+    const placed = await waitFor(async () => (await homeWidgets()).find((w) => w.id === planId)?.options?.markers?.length === 1, { timeout: 5000 });
+    check("a device is placed on the plan", placed != null);
+    await page.waitForTimeout(500);
+    const box = await page.evaluate((d) => {
+      const marker = eval(d)(document, "atrium-floorplan-widget").shadowRoot.querySelector(".m");
+      marker.scrollIntoView({ block: "center" });
+      const r = marker.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, deep);
+    await page.mouse.move(box.x, box.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(box.x - i * 12, box.y - i * 6);
+    await page.mouse.up();
+    const moved = await waitFor(async () => {
+      const m = (await homeWidgets()).find((w) => w.id === planId)?.options?.markers?.[0];
+      return m && (m.x < 49 || m.y < 49);
+    }, { timeout: 5000 });
+    check("dragging moves the device", moved != null);
+    await page.screenshot({ path: `${SHOTS}floorplan-edit.png` });
+    await panelClick(page, ".edit-toggle");
+    await page.waitForTimeout(500);
+    const lightBefore = (await ws(page, { type: "get_states" })).find((x) => x.entity_id === cfg.testLight)?.state;
+    await page.evaluate((d) => eval(d)(document, "atrium-floorplan-widget").shadowRoot.querySelector(".m").click(), deep);
+    const toggled = await waitFor(
+      async () => (await ws(page, { type: "get_states" })).find((x) => x.entity_id === cfg.testLight)?.state !== lightBefore,
+      { timeout: 8000 },
+    );
+    check("tapping a light on the plan switches it", toggled != null);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${SHOTS}floorplan.png` });
+    await page.evaluate((d) => eval(d)(document, "atrium-floorplan-widget").shadowRoot.querySelector(".m").click(), deep);
+    await waitFor(
+      async () => (await ws(page, { type: "get_states" })).find((x) => x.entity_id === cfg.testLight)?.state === lightBefore,
+      { timeout: 8000 },
+    );
+
     // Doorbell: the settings find it, "try it" shows the camera popup.
     await clickNav(page, "settings");
     await page.waitForTimeout(300);
