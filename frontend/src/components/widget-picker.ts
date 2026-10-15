@@ -16,23 +16,32 @@ export class AtriumWidgetPicker extends LitElement {
     _query: { state: true },
     _preview: { state: true },
     _onlyAvailable: { state: true },
+    _variant: { state: true },
   };
 
   declare ctx: PanelContext;
   declare _query: string;
   declare _preview: string | null;
   declare _onlyAvailable: boolean;
+  /** Design picked in the open preview. */
+  declare _variant: string | null;
 
   constructor() {
     super();
     this._query = "";
     this._preview = null;
     this._onlyAvailable = false;
+    this._variant = null;
   }
 
   #add(def: WidgetDef): void {
+    const variant = this._preview === def.type ? this._variant : null;
     this.dispatchEvent(
-      new CustomEvent("atrium-add-widget", { detail: def.type, bubbles: true, composed: true }),
+      new CustomEvent("atrium-add-widget", {
+        detail: variant ? `${def.type}|${variant}` : def.type,
+        bubbles: true,
+        composed: true,
+      }),
     );
   }
 
@@ -88,7 +97,10 @@ export class AtriumWidgetPicker extends LitElement {
                         type="button"
                         class="ghost"
                         aria-expanded=${String(open)}
-                        @click=${() => (this._preview = open ? null : w.type)}
+                        @click=${() => {
+                          this._preview = open ? null : w.type;
+                          this._variant = null;
+                        }}
                       >
                         ${t("w.preview")}
                       </button>`
@@ -98,9 +110,34 @@ export class AtriumWidgetPicker extends LitElement {
               </div>
               ${
                 open
-                  ? html`<div class="preview">
-                      ${w.render(this.ctx, { id: `preview-${w.type}`, type: w.type }, !ok || Boolean(w.setup))}
-                    </div>`
+                  ? html`${
+                        w.variants?.length
+                          ? html`<div class="vchips" role="group" aria-label=${t("wo.design")}>
+                              ${w.variants.map(
+                                ([v, label], i) =>
+                                  html`<button
+                                    type="button"
+                                    data-variant=${v}
+                                    aria-pressed=${String((this._variant ?? w.variants?.[0]?.[0]) === v)}
+                                    @click=${() => (this._variant = i === 0 ? null : v)}
+                                  >
+                                    ${t(label)}
+                                  </button>`,
+                              )}
+                            </div>`
+                          : nothing
+                      }
+                      <div class="preview">
+                        ${w.render(
+                          this.ctx,
+                          {
+                            id: `preview-${w.type}`,
+                            type: w.type,
+                            ...(this._variant ? { options: { variant: this._variant } } : {}),
+                          },
+                          !ok || Boolean(w.setup),
+                        )}
+                      </div>`
                   : nothing
               }
             </div>`;
@@ -242,6 +279,22 @@ export class AtriumWidgetPicker extends LitElement {
     input:focus-visible {
       outline: 2px solid var(--a-ocher);
       outline-offset: 2px;
+    }
+    .vchips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .vchips button {
+      min-height: 32px;
+      border-radius: 16px;
+      background: var(--a-s3);
+      color: var(--a-text);
+      font-size: 12px;
+    }
+    .vchips button[aria-pressed="true"] {
+      background: var(--a-text);
+      color: var(--a-bg);
     }
     .preview {
       --a-s1: var(--a-bg);

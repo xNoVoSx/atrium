@@ -1,6 +1,7 @@
 // UI strings in English and German. English is the source and the fallback.
 
 import { appDe, appEn } from "./app";
+import { designsDe, designsEn } from "./designs";
 import { widgetsDe, widgetsEn } from "./widgets";
 
 const coreEn = {
@@ -213,7 +214,7 @@ const coreEn = {
   "weather.windy-variant": "windy",
 } as const;
 
-const en = { ...coreEn, ...widgetsEn, ...appEn };
+const en = { ...coreEn, ...widgetsEn, ...appEn, ...designsEn };
 
 export type MessageKey = keyof typeof en;
 
@@ -427,7 +428,7 @@ const coreDe: Record<keyof typeof coreEn, string> = {
   "weather.windy-variant": "windig",
 };
 
-const de: Record<MessageKey, string> = { ...coreDe, ...widgetsDe, ...appDe };
+const de: Record<MessageKey, string> = { ...coreDe, ...widgetsDe, ...appDe, ...designsDe };
 
 const catalogs: Record<string, Record<MessageKey, string>> = { en, de };
 

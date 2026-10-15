@@ -15,9 +15,11 @@ import { formatSince } from "../util/format";
  * admins can hide a row's entity.
  */
 export class AtriumStatusModule extends LitElement {
-  static override properties = { ctx: { attribute: false } };
+  static override properties = { ctx: { attribute: false }, variant: { reflect: true } };
 
   declare ctx: PanelContext;
+  /** Design: rows (default), chips or cards. */
+  declare variant: string | undefined;
 
   #status = new SelectorController(
     this,
@@ -198,6 +200,37 @@ export class AtriumStatusModule extends LitElement {
       }
       .battery .meta {
         color: var(--a-text2);
+      }
+      /* Design "chips" */
+      :host([variant="chips"]) {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      :host([variant="chips"]) .line {
+        display: inline-flex;
+      }
+      :host([variant="chips"]) .row {
+        min-height: 36px;
+        border-radius: 18px;
+        padding: 0 12px;
+        font-size: 13px;
+        gap: 6px;
+      }
+      /* Design "cards" */
+      :host([variant="cards"]) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      }
+      :host([variant="cards"]) .row {
+        min-height: 76px;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 4px;
+        padding: 10px 14px;
+      }
+      :host([variant="cards"]) .title {
+        font-size: 15px;
       }
     `,
   ];

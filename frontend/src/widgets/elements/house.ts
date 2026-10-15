@@ -183,6 +183,58 @@ const ctl = css`
   .on .gfx {
     color: var(--a-ocher);
   }
+  /* Designs */
+  :host([variant="list"]) .tiles {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  :host([variant="list"]) .tile {
+    padding: 6px 8px 6px 12px;
+  }
+  :host([variant="list"]) .gfx {
+    width: 28px;
+    height: 28px;
+  }
+  :host([variant="big"]) .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+  }
+  :host([variant="big"]) .tile {
+    padding: 18px;
+    min-height: 92px;
+    gap: 16px;
+  }
+  :host([variant="big"]) .gfx {
+    width: 56px;
+    height: 56px;
+  }
+  :host([variant="big"]) .tn b {
+    font-size: 19px;
+  }
+  :host([variant="chips"]) .tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  :host([variant="chips"]) .tile {
+    padding: 4px 6px 4px 12px;
+    border-radius: 24px;
+    gap: 8px;
+    min-height: 44px;
+  }
+  :host([variant="chips"]) .gfx {
+    width: 22px;
+    height: 22px;
+  }
+  :host([variant="chips"]) .tn small {
+    display: none;
+  }
+  :host([variant="chips"]) .ctl button,
+  :host([variant="chips"]) .act {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+  }
 `;
 
 const ico = (d: string) => svg`<svg viewBox="0 0 24 24"><path d=${d} /></svg>`;

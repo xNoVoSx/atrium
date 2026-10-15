@@ -61,6 +61,9 @@ export class AtriumHeaderModule extends LitElement {
 
   protected override willUpdate(): void {
     this.#info.attach();
+    const variant = this.config?.options?.variant;
+    if (typeof variant === "string" && variant !== "standard") this.setAttribute("variant", variant);
+    else this.removeAttribute("variant");
   }
 
   protected override render() {
@@ -214,6 +217,51 @@ export class AtriumHeaderModule extends LitElement {
       }
       .waste.soon .waste-when {
         color: inherit;
+      }
+      /* Design "centred" */
+      :host([variant="centered"]) {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      :host([variant="centered"]) .side {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding-top: 0;
+      }
+      /* Design "one line" */
+      :host([variant="line"]) {
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      :host([variant="line"]) .when {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      :host([variant="line"]) .time {
+        font-size: 30px;
+      }
+      :host([variant="line"]) .greet {
+        margin: 0;
+      }
+      :host([variant="line"]) .side {
+        flex-direction: row;
+        align-items: center;
+        padding-top: 0;
+      }
+      /* Design "large" (wall tablets) */
+      :host([variant="big"]) .time {
+        font-size: clamp(72px, 12vw, 128px);
+      }
+      :host([variant="big"]) .date {
+        font-size: 18px;
+      }
+      :host([variant="big"]) .weather .temp {
+        font-size: 40px;
       }
     `,
   ];

@@ -235,6 +235,14 @@ export class AtriumActivityWidget extends WidgetBase {
         color: var(--a-text);
         font-weight: 600;
       }
+      :host([variant="list"]) .log::before,
+      :host([variant="list"]) .ev::after {
+        display: none;
+      }
+      :host([variant="list"]) .ev {
+        gap: 10px;
+        border-bottom: 1px solid var(--a-s2);
+      }
     `,
   ];
 }
@@ -372,6 +380,21 @@ export class AtriumRoomCardWidget extends WidgetBase {
       .lights.on small {
         color: inherit;
         opacity: 0.8;
+      }
+      :host([variant="minimal"]) .facts > :not(:first-child) {
+        display: none;
+      }
+      :host([variant="minimal"]) .facts {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      :host([variant="big"]) .rn {
+        font-size: 28px;
+      }
+      :host([variant="big"]) .facts b {
+        font-size: 30px;
+      }
+      :host([variant="big"]) .facts > * {
+        padding: 14px;
       }
     `,
   ];

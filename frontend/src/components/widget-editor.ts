@@ -6,6 +6,7 @@ import { nameOf } from "../data/registry";
 import { withoutKey } from "../util/object";
 import type { MessageKey } from "../i18n";
 import { widgetDef } from "../widgets/catalog";
+import { SKINS } from "../widgets/skins";
 import type { OptionField } from "../widgets/types";
 
 /**
@@ -249,6 +250,42 @@ export class AtriumWidgetEditor extends LitElement {
             </div>`
           : nothing
       }
+      ${
+        def.variants?.length
+          ? html`<div class="field">
+              <span class="fl">${t("wo.design")}</span>
+              <div class="designs">
+                ${def.variants.map(
+                  ([v, label], i) =>
+                    html`<button
+                      type="button"
+                      data-variant=${v}
+                      aria-pressed=${String((w.options?.variant ?? def.variants?.[0]?.[0]) === v)}
+                      @click=${() => this.#setOption("variant", i === 0 ? undefined : v)}
+                    >
+                      ${t(label)}
+                    </button>`,
+                )}
+              </div>
+            </div>`
+          : nothing
+      }
+      <div class="field">
+        <span class="fl">${t("wo.frame")}</span>
+        <div class="designs">
+          ${SKINS.map(
+            ([v, label]) =>
+              html`<button
+                type="button"
+                data-skin=${v}
+                aria-pressed=${String((w.options?.skin ?? "standard") === v)}
+                @click=${() => this.#setOption("skin", v === "standard" ? undefined : v)}
+              >
+                ${t(label)}
+              </button>`,
+          )}
+        </div>
+      </div>
       <div class="field">
         <span class="fl">${t("wo.visible_from")}</span>
         <div class="seg">
@@ -369,6 +406,27 @@ export class AtriumWidgetEditor extends LitElement {
     .seg button[aria-pressed="true"] {
       background: var(--a-text);
       color: var(--a-bg);
+    }
+    .designs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      gap: 6px;
+    }
+    .designs button {
+      border: 0;
+      min-height: 44px;
+      border-radius: var(--a-radius);
+      background: var(--a-s2);
+      color: var(--a-text);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 8px;
+    }
+    .designs button[aria-pressed="true"] {
+      background: var(--a-ocher);
+      color: var(--a-on-ocher);
     }
     .chosen {
       display: flex;

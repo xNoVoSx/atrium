@@ -1,7 +1,7 @@
 // Information widgets: weather forecast, calendar, to-do lists, people,
 // clock, sun, notifications.
 
-import { css, html, nothing, type PropertyValues } from "lit";
+import { css, html, nothing, svg, type PropertyValues } from "lit";
 import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
 import { SelectorController } from "../../data/entity-store";
@@ -218,6 +218,22 @@ export class AtriumWeatherWidget extends WidgetBase {
         color: var(--a-text3);
         font-size: 12px;
       }
+      :host([variant="now"]) .days {
+        display: none;
+      }
+      :host([variant="forecast"]) .now {
+        display: none;
+      }
+      :host([variant="big"]) .big-ico svg {
+        width: 96px;
+        height: 96px;
+      }
+      :host([variant="big"]) .temp {
+        font-size: 72px;
+      }
+      :host([variant="big"]) .cond {
+        font-size: 18px;
+      }
     `,
   ];
 }
@@ -419,6 +435,16 @@ export class AtriumCalendarWidget extends WidgetBase {
       .cal-sum small {
         font-size: 12px;
         color: var(--a-text3);
+      }
+      :host([variant="compact"]) .cal-sum small {
+        display: none;
+      }
+      :host([variant="compact"]) .cal-ev {
+        padding: 4px 10px;
+        border-left-width: 2px;
+      }
+      :host([variant="compact"]) .cal-time {
+        font-size: 13px;
       }
     `,
   ];
@@ -644,6 +670,13 @@ export class AtriumTodoWidget extends WidgetBase {
         color: var(--a-text3);
         background-size: 100% 1.5px;
       }
+      :host([variant="compact"]) .item.done {
+        display: none;
+      }
+      :host([variant="compact"]) .item {
+        min-height: 34px;
+        font-size: 14px;
+      }
     `,
   ];
 }
@@ -767,6 +800,45 @@ export class AtriumPersonsWidget extends WidgetBase {
           box-shadow: 0 0 0 10px transparent;
         }
       }
+      :host([variant="list"]) .people {
+        flex-direction: column;
+        gap: 6px;
+      }
+      :host([variant="list"]) .person {
+        width: auto;
+        flex-direction: row;
+        gap: 12px;
+        background: var(--a-s2);
+        border-radius: var(--a-radius);
+        padding: 6px 12px 6px 6px;
+      }
+      :host([variant="list"]) .avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+      }
+      :host([variant="list"]) .pn {
+        flex: 1;
+      }
+      :host([variant="chips"]) .people {
+        gap: 6px;
+      }
+      :host([variant="chips"]) .person {
+        width: auto;
+        flex-direction: row;
+        gap: 8px;
+        background: var(--a-s2);
+        border-radius: 22px;
+        padding: 4px 12px 4px 4px;
+      }
+      :host([variant="chips"]) .avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+      }
+      :host([variant="chips"]) .ps {
+        display: none;
+      }
     `,
   ];
 }
@@ -802,6 +874,28 @@ export class AtriumClockWidget extends WidgetBase {
       minute: "2-digit",
       ...(seconds ? { second: "2-digit" } : {}),
     }).formatToParts(this._now);
+    if (this.variant === "analog") {
+      const h = this._now.getHours() % 12;
+      const m = this._now.getMinutes();
+      const sec = this._now.getSeconds();
+      const hand = (deg: number, len: number, cls: string) =>
+        svg`<line x1="50" y1="50" x2="50" y2=${50 - len} class=${cls} transform="rotate(${deg} 50 50)" />`;
+      return html`<div class="w clock">
+        <svg
+          class="analog"
+          viewBox="0 0 100 100"
+          aria-label=${new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(this._now)}
+        >
+          <circle cx="50" cy="50" r="46" class="face" />
+          ${Array.from({ length: 12 }, (_, i) => svg`<line x1="50" y1="8" x2="50" y2=${i % 3 === 0 ? 15 : 12} class="mark" transform="rotate(${i * 30} 50 50)" />`)}
+          ${hand(h * 30 + m / 2, 24, "hh")} ${hand(m * 6 + sec / 10, 34, "mh")} ${hand(sec * 6, 38, "sh")}
+          <circle cx="50" cy="50" r="2.5" class="pin" />
+        </svg>
+        <div class="date">
+          ${new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(this._now)}
+        </div>
+      </div>`;
+    }
     return html`<div class="w clock">
       <div class="time">
         ${parts.map((p) => (p.type === "literal" ? html`<span class="colon">${p.value}</span>` : html`<span>${p.value}</span>`))}
@@ -838,6 +932,43 @@ export class AtriumClockWidget extends WidgetBase {
         50% {
           opacity: 0.25;
         }
+      }
+      :host([variant="minimal"]) .date {
+        display: none;
+      }
+      :host([variant="minimal"]) .clock {
+        min-height: 0;
+      }
+      .analog {
+        width: min(220px, 70%);
+        aspect-ratio: 1;
+      }
+      .face {
+        fill: var(--a-s2);
+      }
+      .mark {
+        stroke: var(--a-text3);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+      }
+      .hh,
+      .mh {
+        stroke: var(--a-text);
+        stroke-linecap: round;
+      }
+      .hh {
+        stroke-width: 4;
+      }
+      .mh {
+        stroke-width: 2.6;
+      }
+      .sh {
+        stroke: var(--a-ocher);
+        stroke-width: 1.2;
+        transition: transform calc(var(--a-motion, 1) * 200ms) cubic-bezier(0.4, 2.2, 0.6, 1);
+      }
+      .pin {
+        fill: var(--a-ocher);
       }
     `,
   ];
@@ -954,6 +1085,9 @@ export class AtriumSunWidget extends WidgetBase {
         50% {
           opacity: 0.75;
         }
+      }
+      :host([variant="minimal"]) .arc {
+        display: none;
       }
     `,
   ];
@@ -1089,6 +1223,13 @@ export class AtriumNotificationsWidget extends WidgetBase {
         border-radius: 16px;
         cursor: pointer;
         flex: none;
+      }
+      :host([variant="compact"]) .nt span {
+        display: none;
+      }
+      :host([variant="compact"]) .note-item {
+        padding: 6px 10px;
+        align-items: center;
       }
     `,
   ];

@@ -216,6 +216,7 @@ async function main() {
     const startOrder = await homeTileIds(page);
     const boxes = await page.evaluate((deep) => {
       const module = eval(deep)(document, "atrium-lights-module");
+      module.shadowRoot.querySelector("[data-sort-id]")?.scrollIntoView({ block: "center" });
       return [...module.shadowRoot.querySelectorAll("[data-sort-id]")].slice(0, 2).map((el) => {
         const r = el.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
@@ -438,6 +439,29 @@ async function main() {
       const ok = tiles.length > 0 && tiles.every((t) => (style === "list" ? t.list && t.compact : !t.list && !t.compact));
       check(`lights widget in ${style} style`, ok, `${tiles.length} tiles`);
       await page.screenshot({ path: `${SHOTS}lights-${style}.png` });
+    }
+
+    // Designs: heating as tiles (one tile per zone) and a frame around the header.
+    {
+      const layout = (await ws(page, { type: "atrium/settings/get" })).layout;
+      layout.pages.home.widgets = layout.pages.home.widgets.map((w) =>
+        w.type === "climate"
+          ? { ...w, options: { ...w.options, variant: "tiles" } }
+          : w.type === "header"
+            ? { ...w, options: { ...w.options, skin: "contrast" } }
+            : w,
+      );
+      await ws(page, { type: "atrium/settings/set_layout", layout });
+      await page.waitForTimeout(800);
+      const result = await page.evaluate((d) => {
+        const mod = eval(d)(document, "atrium-climate-module");
+        const zones = mod?.shadowRoot.querySelectorAll("atrium-climate-zone").length ?? 0;
+        const header = eval(d)(document, '[data-widget="header"] .body');
+        return { zones, skin: header?.className ?? "" };
+      }, deep);
+      check("heating design 'tiles' shows every zone", result.zones > 1, `${result.zones} zones`);
+      check("frame 'contrast' is applied", result.skin.includes("skin-contrast"));
+      await page.screenshot({ path: `${SHOTS}designs-home.png`, fullPage: true });
     }
 
     // Doorbell: the settings find it, "try it" shows the camera popup.

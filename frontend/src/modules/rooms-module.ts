@@ -13,11 +13,14 @@ export class AtriumRoomsModule extends LitElement {
     ctx: { attribute: false },
     heading: { type: Boolean },
     large: { type: Boolean, reflect: true },
+    variant: { reflect: true },
   };
 
   declare ctx: PanelContext;
   declare heading: boolean;
   declare large: boolean;
+  /** Design: squares (default), list, cards or chips. */
+  declare variant: string | undefined;
 
   #rooms = new SelectorController(
     this,
@@ -160,6 +163,105 @@ export class AtriumRoomsModule extends LitElement {
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
+      }
+      a {
+        transition:
+          background-color calc(var(--a-motion, 1) * 150ms),
+          transform calc(var(--a-motion, 1) * 120ms);
+      }
+      a:active {
+        transform: scale(0.97);
+      }
+      /* Design "list": one row per room. */
+      :host([variant="list"]) .rooms {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 6px;
+      }
+      :host([variant="list"]) a {
+        aspect-ratio: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        min-height: 52px;
+        padding: 8px 14px;
+      }
+      :host([variant="list"]) .bottom {
+        flex: 1;
+        flex-direction: row-reverse;
+        justify-content: space-between;
+        align-items: center;
+      }
+      :host([variant="list"]) .temp {
+        font-size: 17px;
+      }
+      :host([variant="list"]) .name {
+        font-size: 15px;
+      }
+      /* Design "cards": wide cards with the lights that are on. */
+      :host([variant="cards"]) .rooms {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      }
+      :host([variant="cards"]) a {
+        aspect-ratio: auto;
+        min-height: 100px;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 14px;
+      }
+      :host([variant="cards"]) .icon {
+        --mdc-icon-size: 34px;
+        background: var(--a-s2);
+        border-radius: var(--a-radius);
+        padding: 8px;
+      }
+      :host([variant="cards"]) .bottom {
+        flex: 1;
+      }
+      :host([variant="cards"]) .name {
+        font-size: 17px;
+        order: -1;
+      }
+      :host([variant="cards"]) .sr {
+        position: static;
+        width: auto;
+        height: auto;
+        clip: auto;
+        font-size: 12px;
+        color: var(--a-ocher);
+        font-weight: 600;
+      }
+      /* Design "chips": small pills that wrap. */
+      :host([variant="chips"]) .rooms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      :host([variant="chips"]) a {
+        aspect-ratio: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px 6px 10px;
+        border-radius: 20px;
+        min-height: 40px;
+      }
+      :host([variant="chips"]) .icon {
+        --mdc-icon-size: 18px;
+        min-height: 18px;
+      }
+      :host([variant="chips"]) .bottom {
+        flex-direction: row-reverse;
+        align-items: baseline;
+        gap: 6px;
+      }
+      :host([variant="chips"]) .temp {
+        font-size: 13px;
+        color: var(--a-text2);
+      }
+      :host([variant="chips"]) .name {
+        font-size: 14px;
       }
     `,
   ];

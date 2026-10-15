@@ -18,6 +18,7 @@ import type { MessageKey } from "../i18n";
 import { ICONS } from "../theme/shared";
 import { attachSortable } from "../util/sortable";
 import { widgetDef, widgetVisible } from "../widgets/catalog";
+import { skinStyles } from "../widgets/skins";
 
 const GRIP = "M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01";
 const COG =
@@ -138,12 +139,19 @@ export class AtriumWidgetPage extends LitElement {
   }
 
   #onAdd(ev: CustomEvent<string>): void {
-    const def = widgetDef(ev.detail);
+    const [type = "", variant] = ev.detail.split("|");
+    const def = widgetDef(type);
     if (!def) return;
     // On a room's page, widgets that can be limited to a room start with this room.
     const room = this.pageId.startsWith("room:") ? this.pageId.slice(5) : "";
-    const preset = room && def.options?.some((o) => o.kind === "area") ? { options: { area: room } } : {};
-    const next = addWidget(this.ctx.layout, this.pageId, { type: def.type, ...preset });
+    const options: Record<string, unknown> = {
+      ...(room && def.options?.some((o) => o.kind === "area") ? { area: room } : {}),
+      ...(variant ? { variant } : {}),
+    };
+    const next = addWidget(this.ctx.layout, this.pageId, {
+      type: def.type,
+      ...(Object.keys(options).length ? { options } : {}),
+    });
     this.ctx.saveLayout(next);
     const added = page(next, this.pageId)?.widgets.at(-1);
     this.#sheet()?.close();
@@ -239,10 +247,11 @@ export class AtriumWidgetPage extends LitElement {
     const size = w.size ?? def.size;
     const dimmed = canEdit && !widgetVisible(w, this.ctx.level);
     const levelHidden = canEdit && !w.disabled && !levelAllows(this.ctx.level, w.minLevel ?? def.minLevel);
+    const skin = typeof w.options?.skin === "string" ? `skin-${w.options.skin}` : "";
     return html`<div class="slot s-${size} ${dimmed ? "dim" : ""}" data-sort-id=${w.id} data-widget=${w.type}>
       ${canEdit ? this.#toolbar(w) : nothing}
       ${levelHidden ? html`<div class="lvl">${t("w.level_hidden")}</div>` : nothing}
-      ${def.render(this.ctx, w, false)}
+      <div class="body ${skin}">${def.render(this.ctx, w, false)}</div>
     </div>`;
   }
 
@@ -351,157 +360,163 @@ export class AtriumWidgetPage extends LitElement {
     `;
   }
 
-  static override styles = css`
-    :host {
-      display: block;
-    }
-    h1 {
-      margin: 4px 0 18px;
-      font-size: 34px;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    h1 ha-icon {
-      --mdc-icon-size: 32px;
-      color: var(--a-ocher);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: 18px 20px;
-      align-items: start;
-      position: relative;
-      grid-auto-flow: row dense;
-    }
-    .flow,
-    .col {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      min-width: 0;
-    }
-    .cols {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 20px;
-      align-items: start;
-    }
-    .slot {
-      grid-column: span 12;
-      min-width: 0;
-      position: relative;
-    }
-    @media (min-width: 900px) {
-      .s-m {
-        grid-column: span 6;
+  static override styles = [
+    skinStyles,
+    css`
+      :host {
+        display: block;
       }
-      .s-s {
-        grid-column: span 4;
+      .body {
+        min-width: 0;
       }
-    }
-    @media (min-width: 600px) and (max-width: 899px) {
-      .s-s {
-        grid-column: span 6;
+      h1 {
+        margin: 4px 0 18px;
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
-    }
-    .editing .slot {
-      outline: 1px dashed var(--a-s3);
-      outline-offset: 6px;
-      border-radius: var(--a-radius);
-    }
-    .slot.dim > :not(.tools) {
-      opacity: 0.4;
-    }
-    .slot.dragging {
-      z-index: 3;
-      filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
-    }
-    .tools {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 8px;
-      padding: 4px;
-      border-radius: var(--a-radius);
-      background: var(--a-s2);
-    }
-    .tools .tname {
-      flex: 1;
-      min-width: 0;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--a-text2);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .tools button,
-    .grip {
-      border: 0;
-      min-width: 36px;
-      height: 36px;
-      padding: 0 8px;
-      border-radius: 6px;
-      background: var(--a-s3);
-      color: var(--a-text);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .grip {
-      cursor: grab;
-      touch-action: none;
-      background: none;
-      color: var(--a-text2);
-    }
-    .tools button.danger {
-      background: var(--a-terra);
-      color: #fff;
-    }
-    .sz {
-      min-width: 1.2em;
-    }
-    .lvl {
-      font-size: 12px;
-      color: var(--a-text3);
-      margin: -4px 0 6px;
-    }
-    .add-widget {
-      grid-column: span 12;
-      min-height: 64px;
-      border: 2px dashed var(--a-s3);
-      border-radius: var(--a-radius);
-      background: none;
-      color: var(--a-text2);
-      font: inherit;
-      font-size: 15px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: border-color calc(var(--a-motion, 1) * 150ms);
-    }
-    .add-widget:hover {
-      border-color: var(--a-ocher);
-      color: var(--a-text);
-    }
-    button:focus-visible {
-      outline: 2px solid var(--a-ocher);
-      outline-offset: 2px;
-    }
-    .hint {
-      color: var(--a-text2);
-      font-size: 14px;
-    }
-  `;
+      h1 ha-icon {
+        --mdc-icon-size: 32px;
+        color: var(--a-ocher);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 18px 20px;
+        align-items: start;
+        position: relative;
+        grid-auto-flow: row dense;
+      }
+      .flow,
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+      .slot {
+        grid-column: span 12;
+        min-width: 0;
+        position: relative;
+      }
+      @media (min-width: 900px) {
+        .s-m {
+          grid-column: span 6;
+        }
+        .s-s {
+          grid-column: span 4;
+        }
+      }
+      @media (min-width: 600px) and (max-width: 899px) {
+        .s-s {
+          grid-column: span 6;
+        }
+      }
+      .editing .slot {
+        outline: 1px dashed var(--a-s3);
+        outline-offset: 6px;
+        border-radius: var(--a-radius);
+      }
+      .slot.dim > :not(.tools) {
+        opacity: 0.4;
+      }
+      .slot.dragging {
+        z-index: 3;
+        filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+      }
+      .tools {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 8px;
+        padding: 4px;
+        border-radius: var(--a-radius);
+        background: var(--a-s2);
+      }
+      .tools .tname {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--a-text2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tools button,
+      .grip {
+        border: 0;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 8px;
+        border-radius: 6px;
+        background: var(--a-s3);
+        color: var(--a-text);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .grip {
+        cursor: grab;
+        touch-action: none;
+        background: none;
+        color: var(--a-text2);
+      }
+      .tools button.danger {
+        background: var(--a-terra);
+        color: #fff;
+      }
+      .sz {
+        min-width: 1.2em;
+      }
+      .lvl {
+        font-size: 12px;
+        color: var(--a-text3);
+        margin: -4px 0 6px;
+      }
+      .add-widget {
+        grid-column: span 12;
+        min-height: 64px;
+        border: 2px dashed var(--a-s3);
+        border-radius: var(--a-radius);
+        background: none;
+        color: var(--a-text2);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: border-color calc(var(--a-motion, 1) * 150ms);
+      }
+      .add-widget:hover {
+        border-color: var(--a-ocher);
+        color: var(--a-text);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 2px;
+      }
+      .hint {
+        color: var(--a-text2);
+        font-size: 14px;
+      }
+    `,
+  ];
 }

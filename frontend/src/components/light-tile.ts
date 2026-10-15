@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues } from "lit";
 import { EntityController, type EntityStore } from "../data/entity-store";
-import { brightnessPct, friendlyName, withoutArea } from "../data/registry";
+import { brightnessPct, friendlyName, isDimmable, withoutArea } from "../data/registry";
 import type { Translate } from "../i18n";
 import { attachPress } from "../util/press";
 import { editOverlay, editStyles } from "./edit-overlay";
@@ -27,6 +27,9 @@ export class AtriumLightTile extends LitElement {
     entityId: { attribute: "entity-id", reflect: true },
     compact: { type: Boolean, reflect: true },
     list: { type: Boolean, reflect: true },
+    round: { type: Boolean, reflect: true },
+    slider: { type: Boolean, reflect: true },
+    _drag: { state: true },
     areaName: { attribute: false },
     editing: { type: Boolean, reflect: true },
     favorite: { type: Boolean },
@@ -39,6 +42,10 @@ export class AtriumLightTile extends LitElement {
   declare entityId: string;
   /** One row (icon, name, state) instead of a square. */
   declare compact: boolean;
+  declare list: boolean;
+  declare round: boolean;
+  declare slider: boolean;
+  declare _drag: number | null;
   /** On a room page: the room's name, left out of the light's name. */
   declare areaName: string | undefined;
   declare editing: boolean;
@@ -102,6 +109,31 @@ export class AtriumLightTile extends LitElement {
     }
   }
 
+  /** Design "with slider": brightness right under the tile. */
+  #dimBar(on: boolean, pct: number) {
+    const value = this._drag ?? (on ? pct : 0);
+    return html`<div class="dimbar ${on ? "on" : ""}">
+      <input
+        type="range"
+        min="0"
+        max="100"
+        .value=${String(value)}
+        aria-label=${this.t("control.brightness")}
+        @pointerdown=${(e: Event) => e.stopPropagation()}
+        @input=${(e: Event) => (this._drag = Number((e.target as HTMLInputElement).value))}
+        @change=${(e: Event) => {
+          const v = Number((e.target as HTMLInputElement).value);
+          this._drag = null;
+          void this.store?.hass?.callService("light", v > 0 ? "turn_on" : "turn_off", {
+            entity_id: this.entityId,
+            ...(v > 0 ? { brightness_pct: v } : {}),
+          });
+        }}
+      />
+      <span class="pct">${value} %</span>
+    </div>`;
+  }
+
   protected override render() {
     const s = this.#entity.state;
     if (!s) return nothing;
@@ -113,13 +145,14 @@ export class AtriumLightTile extends LitElement {
         aria-pressed=${String(on)}
       >
         <span class="wash"></span>
-        ${BULB}
+        <span class="bulb">${BULB}</span>
         <span class="text">
           <span class="name">${withoutArea(friendlyName(s), this.areaName)}</span>
           <span class="state">${this.#stateLabel()}</span>
         </span>
         ${on && brightnessPct(s) != null ? html`<span class="level" style="width:${brightnessPct(s)}%"></span>` : nothing}
       </button>
+      ${this.slider && isDimmable(s) ? this.#dimBar(on, brightnessPct(s) ?? 0) : nothing}
       ${editOverlay(
         this,
         this.entityId,
@@ -218,6 +251,91 @@ export class AtriumLightTile extends LitElement {
         fill-opacity: 0.18;
       }
       /* Brightness as a thin line at the bottom. */
+      .bulb {
+        display: contents;
+      }
+      /* Design "round buttons": a circle with the bulb, the name below. */
+      :host([round]) button.tile {
+        aspect-ratio: auto;
+        background: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 4px;
+        text-align: center;
+        color: var(--a-text);
+        overflow: visible;
+      }
+      :host([round]) .wash,
+      :host([round]) .level {
+        display: none;
+      }
+      :host([round]) .bulb {
+        display: flex;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        background: var(--a-s1);
+        transition: background-color calc(var(--a-motion, 1) * 300ms);
+      }
+      :host([round]) button.tile.on {
+        background: none;
+        color: var(--a-text);
+      }
+      :host([round]) .on .bulb {
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+        animation: pop calc(var(--a-motion, 1) * 380ms) cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+      :host([round]) .name {
+        font-size: 13px;
+        -webkit-line-clamp: 2;
+      }
+      :host([round]) .state {
+        font-size: 11px;
+        color: var(--a-text2);
+      }
+      /* Design "with slider" */
+      :host([slider]) button.tile {
+        border-radius: var(--a-radius) var(--a-radius) 0 0;
+      }
+      .dimbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 2px 14px 10px;
+        background: var(--a-s1);
+        border-radius: 0 0 var(--a-radius) var(--a-radius);
+        transition: background-color calc(var(--a-motion, 1) * 300ms);
+      }
+      .dimbar.on {
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+      }
+      .dimbar input {
+        flex: 1;
+        accent-color: var(--a-on-ocher);
+        height: 28px;
+        cursor: pointer;
+      }
+      .dimbar:not(.on) input {
+        accent-color: var(--a-text2);
+      }
+      .pct {
+        width: 40px;
+        text-align: right;
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      @keyframes pop {
+        from {
+          transform: scale(0.8);
+        }
+      }
       .level {
         position: absolute;
         left: 0;

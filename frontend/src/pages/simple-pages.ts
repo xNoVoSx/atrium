@@ -23,6 +23,7 @@ import { categoryList, roomSectionList, setCategory, setRoomSection } from "../d
 import { isLevel, levelAllows, levelChoiceAllowed, LEVELS } from "../data/levels";
 import { customPages } from "../data/pages";
 import { WIDGETS } from "../widgets/catalog";
+import type { WidgetDef } from "../widgets/types";
 import { WI } from "../widgets/icons";
 import { ACCENTS, DENSITIES, type ThemePreference } from "../theme/tokens";
 import { SCREENSAVER_CHOICES } from "../components/screensaver";
@@ -216,6 +217,35 @@ export class AtriumCategoryPage extends LitElement {
       </div>`;
   }
 
+  /**
+   * Full-width widgets break the list into runs; the others fill two
+   * independent columns, so tall and short widgets do not leave holes.
+   */
+  #flow(list: readonly WidgetDef[], demo: boolean) {
+    const runs: Array<WidgetDef | [WidgetDef[], WidgetDef[]]> = [];
+    for (const w of list) {
+      if (w.size === "l") {
+        runs.push(w);
+        continue;
+      }
+      let run = runs.at(-1);
+      if (!Array.isArray(run)) {
+        run = [[], []];
+        runs.push(run);
+      }
+      const [a, b] = run;
+      (a.length <= b.length ? a : b).push(w);
+    }
+    const one = (w: WidgetDef) => w.render(this.ctx, { id: `hl-${w.type}`, type: w.type }, demo);
+    return html`<div class="flow">
+      ${runs.map((r) =>
+        Array.isArray(r)
+          ? html`<div class="cols">${r.map((col) => html`<div class="col">${col.map(one)}</div>`)}</div>`
+          : one(r),
+      )}
+    </div>`;
+  }
+
   #renderHomelab() {
     const { t } = this.ctx;
     const hass = this.ctx.store.hass;
@@ -223,9 +253,7 @@ export class AtriumCategoryPage extends LitElement {
     const present = hass ? homelab.filter((w) => w.available(hass)) : [];
     const missing = homelab.filter((w) => !present.includes(w) && w.demo);
     return html`<h1>${t("categories.homelab")}</h1>
-      <div class="wgrid">
-        ${present.map((w) => html`<div class="s-${w.size}">${w.render(this.ctx, { id: `hl-${w.type}`, type: w.type }, false)}</div>`)}
-      </div>
+      ${this.#flow(present, false)}
       ${
         missing.length
           ? html`<button
@@ -240,9 +268,7 @@ export class AtriumCategoryPage extends LitElement {
               ${
                 this._examples
                   ? html`<p class="hint">${t("homelab.examples_hint")}</p>
-                      <div class="wgrid">
-                        ${missing.map((w) => html`<div class="s-${w.size}">${w.render(this.ctx, { id: `hl-${w.type}`, type: w.type }, true)}</div>`)}
-                      </div>`
+                      ${this.#flow(missing, true)}`
                   : nothing
               }`
           : nothing
@@ -274,7 +300,7 @@ export class AtriumCategoryPage extends LitElement {
       return html`<h1>${t("section.heating")}</h1>
         ${
           areas.length
-            ? html`<atrium-climate-module .ctx=${this.ctx}></atrium-climate-module>`
+            ? html`<atrium-climate-module .ctx=${this.ctx} .variant=${"tiles"}></atrium-climate-module>`
             : html`<p class="hint">—</p>`
         }`;
     }
@@ -360,6 +386,25 @@ export class AtriumCategoryPage extends LitElement {
       }
       .low .b-value {
         color: var(--a-terra-text);
+      }
+      .flow,
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 899px) {
+        .cols {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+        }
       }
       .wgrid {
         display: grid;

@@ -9,6 +9,7 @@ import { shared } from "../theme/shared";
 import { attachSortable } from "../util/sortable";
 
 type Mode = "favorites" | "lights";
+export type LightVariant = "compact" | "square" | "list" | "buttons" | "slider";
 
 /**
  * Light tiles. On the home page a user's favourites replace the list once
@@ -32,7 +33,7 @@ export class AtriumLightsModule extends LitElement {
   declare heading: boolean;
   declare compact: boolean;
   /** Tile style chosen in the widget settings; overrides `compact`. */
-  declare variant: "compact" | "square" | "list" | undefined;
+  declare variant: LightVariant | undefined;
   /** Home page: favourites first. */
   declare home: boolean;
   declare _preview: string[] | null;
@@ -128,7 +129,7 @@ export class AtriumLightsModule extends LitElement {
     }
   }
 
-  #variant(): "compact" | "square" | "list" {
+  #variant(): LightVariant {
     return this.variant ?? (this.compact ? "compact" : "square");
   }
 
@@ -158,8 +159,10 @@ export class AtriumLightsModule extends LitElement {
             id.startsWith("light.")
               ? html`<atrium-light-tile
                   data-sort-id=${id}
-                  ?compact=${this.#variant() !== "square"}
+                  ?compact=${["compact", "list", "slider"].includes(this.#variant())}
                   ?list=${this.#variant() === "list"}
+                  ?round=${this.#variant() === "buttons"}
+                  ?slider=${this.#variant() === "slider"}
                   .entityId=${id}
                   .store=${store}
                   .t=${t}
@@ -207,6 +210,14 @@ export class AtriumLightsModule extends LitElement {
       }
       .grid.compact {
         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      }
+      .grid.buttons {
+        grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+        gap: 12px 8px;
+      }
+      .grid.slider {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 8px;
       }
       .grid.list {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

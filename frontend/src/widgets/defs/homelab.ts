@@ -30,6 +30,12 @@ export function dataWidget(
     minLevel,
     integrations: [...integrations],
     demo: true,
+    variants: [
+      ["full", "v.full"],
+      ["summary", "v.summary"],
+      ["compact", "v.compact"],
+      ["list", "v.list"],
+    ],
     available: (hass) => adapterAvailable(adapter, hass),
     render: (ctx, c, demo) =>
       html`<atrium-data-widget

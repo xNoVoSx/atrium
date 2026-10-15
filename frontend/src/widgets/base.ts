@@ -27,6 +27,18 @@ export class WidgetBase extends LitElement {
     return this.config?.options ?? {};
   }
 
+  /** Chosen design (options.variant), "" for the default. */
+  get variant(): string {
+    return typeof this.options.variant === "string" ? this.options.variant : "";
+  }
+
+  // Mirror the design onto the host so styles can switch with :host([variant=…]).
+  protected override update(changed: Map<PropertyKey, unknown>): void {
+    if (this.variant) this.setAttribute("variant", this.variant);
+    else this.removeAttribute("variant");
+    super.update(changed);
+  }
+
   /** The heading: the instance's own title or the widget's name. */
   heading(): string {
     const def = widgetDef(this.config?.type ?? "");

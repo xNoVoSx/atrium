@@ -17,9 +17,11 @@ export function relativeDay(t: Translate, days: number): string {
 
 /** Next pickups from Waste Collection Schedule; today and tomorrow stand out. */
 export class AtriumWasteModule extends LitElement {
-  static override properties = { ctx: { attribute: false } };
+  static override properties = { ctx: { attribute: false }, variant: { reflect: true } };
 
   declare ctx: PanelContext;
+  /** Design: standard, list (all rows alike) or next only. */
+  declare variant: string | undefined;
 
   // Recomputed on state changes; the date in the key makes it roll over at midnight too.
   #pickups = new SelectorController(
@@ -126,6 +128,28 @@ export class AtriumWasteModule extends LitElement {
       .item .when {
         font-size: 12px;
         color: var(--a-text2);
+      }
+      :host([variant="next"]) .later {
+        display: none;
+      }
+      :host([variant="list"]) .next {
+        padding: 10px 12px;
+      }
+      :host([variant="list"]) .next svg {
+        width: 20px;
+        height: 20px;
+      }
+      :host([variant="list"]) .next .types {
+        font-size: 15px;
+      }
+      :host([variant="list"]) .later {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+      }
+      :host([variant="list"]) .item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
       }
     `,
   ];

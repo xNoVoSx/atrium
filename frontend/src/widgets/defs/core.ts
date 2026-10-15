@@ -4,6 +4,7 @@ import { html } from "lit";
 import { suggestEnergy } from "../../data/energy";
 import { climateZones, lightEntities, rooms, sceneEntities, wastePickups } from "../../data/home";
 import { WI } from "../icons";
+import type { LightVariant } from "../../modules/lights-module";
 import type { WidgetDef } from "../types";
 
 const areaOf = (o: Record<string, unknown> | undefined) =>
@@ -22,6 +23,12 @@ export const CORE_WIDGETS: WidgetDef[] = [
     single: true,
     available: () => true,
     options: [{ key: "greeting", label: "wo.greeting", kind: "boolean" }],
+    variants: [
+      ["standard", "v.standard"],
+      ["centered", "v.centered"],
+      ["line", "v.line"],
+      ["big", "v.big"],
+    ],
     render: (ctx, c) => html`<atrium-header-module .ctx=${ctx} .config=${c}></atrium-header-module>`,
   },
   {
@@ -34,7 +41,13 @@ export const CORE_WIDGETS: WidgetDef[] = [
     minLevel: "simple",
     single: true,
     available: () => true,
-    render: (ctx) => html`<atrium-status-module .ctx=${ctx}></atrium-status-module>`,
+    variants: [
+      ["standard", "v.standard"],
+      ["chips", "v.chips"],
+      ["cards", "v.cards"],
+    ],
+    render: (ctx, c) =>
+      html`<atrium-status-module .ctx=${ctx} .variant=${c.options?.variant}></atrium-status-module>`,
   },
   {
     type: "climate",
@@ -46,8 +59,20 @@ export const CORE_WIDGETS: WidgetDef[] = [
     minLevel: "simple",
     available: (hass) => climateZones(hass).length > 0,
     options: [{ key: "area", label: "wo.area", kind: "area" }],
+    variants: [
+      ["card", "v.card"],
+      ["tiles", "v.tiles"],
+      ["list", "v.list"],
+      ["chips", "v.chips"],
+      ["dial", "v.dial"],
+      ["minimal", "v.minimal"],
+    ],
     render: (ctx, c) =>
-      html`<atrium-climate-module .ctx=${ctx} .areaId=${areaOf(c.options)}></atrium-climate-module>`,
+      html`<atrium-climate-module
+        .ctx=${ctx}
+        .areaId=${areaOf(c.options)}
+        .variant=${c.options?.variant}
+      ></atrium-climate-module>`,
   },
   {
     type: "solar",
@@ -58,7 +83,13 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "m",
     minLevel: "standard",
     available: (hass) => Boolean(suggestEnergy(hass).acPower || suggestEnergy(hass).pvPower?.length),
-    render: (ctx) => html`<atrium-solar-module .ctx=${ctx}></atrium-solar-module>`,
+    variants: [
+      ["standard", "v.standard"],
+      ["big", "v.big"],
+      ["ring", "v.ring"],
+    ],
+    render: (ctx, c) =>
+      html`<atrium-solar-module .ctx=${ctx} .variant=${c.options?.variant}></atrium-solar-module>`,
   },
   {
     type: "lights",
@@ -69,22 +100,17 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "m",
     minLevel: "simple",
     available: (hass) => lightEntities(hass).length > 0,
-    options: [
-      { key: "area", label: "wo.area", kind: "area" },
-      {
-        key: "style",
-        label: "wo.tile_style",
-        kind: "select",
-        choices: [
-          ["compact", "wo.style_compact"],
-          ["square", "wo.style_square"],
-          ["list", "wo.style_list"],
-        ],
-      },
+    options: [{ key: "area", label: "wo.area", kind: "area" }],
+    variants: [
+      ["compact", "v.compact"],
+      ["square", "v.square"],
+      ["list", "v.list"],
+      ["buttons", "v.buttons"],
+      ["slider", "v.slider"],
     ],
     render: (ctx, c) => {
       const area = areaOf(c.options);
-      const style = c.options?.style as "compact" | "square" | "list" | undefined;
+      const style = (c.options?.variant ?? c.options?.style) as LightVariant | undefined;
       return area
         ? html`<atrium-lights-module
             .ctx=${ctx}
@@ -104,6 +130,12 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "m",
     minLevel: "simple",
     available: (hass) => sceneEntities(hass).length > 0,
+    variants: [
+      ["grid", "v.grid"],
+      ["list", "v.list"],
+      ["big", "v.big"],
+      ["chips", "v.chips"],
+    ],
     render: (ctx, c) => html`<atrium-scenes-module .ctx=${ctx} .config=${c}></atrium-scenes-module>`,
   },
   {
@@ -115,7 +147,13 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "m",
     minLevel: "standard",
     available: (hass) => wastePickups(hass).length > 0,
-    render: (ctx) => html`<atrium-waste-module .ctx=${ctx}></atrium-waste-module>`,
+    variants: [
+      ["standard", "v.standard"],
+      ["list", "v.list"],
+      ["next", "v.next"],
+    ],
+    render: (ctx, c) =>
+      html`<atrium-waste-module .ctx=${ctx} .variant=${c.options?.variant}></atrium-waste-module>`,
   },
   {
     type: "rooms",
@@ -126,6 +164,13 @@ export const CORE_WIDGETS: WidgetDef[] = [
     size: "l",
     minLevel: "simple",
     available: (hass) => rooms(hass).length > 0,
-    render: (ctx) => html`<atrium-rooms-module .ctx=${ctx}></atrium-rooms-module>`,
+    variants: [
+      ["squares", "v.squares"],
+      ["list", "v.list"],
+      ["cards", "v.cards"],
+      ["chips", "v.chips"],
+    ],
+    render: (ctx, c) =>
+      html`<atrium-rooms-module .ctx=${ctx} .variant=${c.options?.variant}></atrium-rooms-module>`,
   },
 ];

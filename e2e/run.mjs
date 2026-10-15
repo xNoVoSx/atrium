@@ -89,7 +89,20 @@ async function main() {
     ["app", appPage],
     ["desktop", deskPage],
   ]) {
-    page.on("console", (m) => m.type() === "error" && !expectingReload && errors[name].push(m.text()));
+    // Artwork that a media server no longer has comes back as 404 from Home
+    // Assistant's image proxy; the card hides it. That is not an Atrium error.
+    let artworkMissing = 0;
+    page.on("response", (r) => {
+      if (r.status() === 404 && r.url().includes("/api/media_player_proxy/")) artworkMissing += 1;
+    });
+    page.on("console", (m) => {
+      if (m.type() !== "error" || expectingReload) return;
+      if (artworkMissing && m.text().includes("404")) {
+        artworkMissing -= 1;
+        return;
+      }
+      errors[name].push(m.text());
+    });
     page.on("pageerror", (e) => !expectingReload && errors[name].push(String(e)));
   }
 
@@ -119,6 +132,38 @@ async function main() {
   check("phone: bottom navigation, desktop: rail", appPanel.nav === "bottom" && deskPanel.nav === "rail");
   check("navigation labels fit", appPanel.navLabelsFit && deskPanel.navLabelsFit);
   check("home page is shown first", appPanel.page === "atrium-home-page" && deskPanel.page === "atrium-home-page");
+
+  // Every heating zone button is fully visible (none cut off) on phone and desktop, and selectable.
+  for (const [name, page] of [["phone", appPage], ["desktop", deskPage]]) {
+    const zones = await page.evaluate(() => {
+      const deep = (r, sel) => {
+        const hit = r.querySelector(sel);
+        if (hit) return hit;
+        for (const el of r.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+        return null;
+      };
+      const mod = deep(document, "atrium-climate-module");
+      const card = mod?.shadowRoot.querySelector(".card")?.getBoundingClientRect();
+      const buttons = [...(mod?.shadowRoot.querySelectorAll(".zones button") ?? [])];
+      const inside = buttons.every((b) => {
+        const r = b.getBoundingClientRect();
+        return card && r.left >= card.left - 1 && r.right <= card.right + 1;
+      });
+      buttons.at(-1)?.click();
+      return { count: buttons.length, inside, last: buttons.at(-1)?.getAttribute("aria-selected") };
+    });
+    await page.waitForTimeout(200);
+    const selected = await page.evaluate(() => {
+      const deep = (r, sel) => {
+        const hit = r.querySelector(sel);
+        if (hit) return hit;
+        for (const el of r.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+        return null;
+      };
+      return [...deep(document, "atrium-climate-module").shadowRoot.querySelectorAll(".zones button")].at(-1)?.getAttribute("aria-selected");
+    });
+    check(`${name}: all heating zones visible and selectable`, zones.count < 2 || (zones.inside && selected === "true"), `${zones.count} zones`);
+  }
 
   for (const [name, panel] of [
     ["app", appPanel],
@@ -191,7 +236,10 @@ async function main() {
   check("only the changed tile re-rendered", rerendered.every((id) => id === cfg.testLight), rerendered.join(", "));
 
   // Phone: long press opens the bottom sheet.
-  const box = await (await tileButton(appPage, cfg.testLight)).boundingBox();
+  const tile = await tileButton(appPage, cfg.testLight);
+  await tile.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await appPage.waitForTimeout(300);
+  const box = await tile.boundingBox();
   await appPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await appPage.mouse.down();
   await appPage.waitForTimeout(700);

@@ -53,6 +53,9 @@ export class AtriumScenesModule extends LitElement {
 
   protected override willUpdate(): void {
     this.#scenes.attach();
+    const variant = this.config?.options?.variant;
+    if (typeof variant === "string" && variant !== "grid") this.setAttribute("variant", variant);
+    else this.removeAttribute("variant");
   }
 
   override disconnectedCallback(): void {
@@ -252,6 +255,39 @@ export class AtriumScenesModule extends LitElement {
           opacity: 0;
           transform: translateY(-4px);
         }
+      }
+      :host([variant="list"]) .row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+      }
+      :host([variant="big"]) .row {
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      }
+      :host([variant="big"]) .row button {
+        min-height: 96px;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      :host([variant="big"]) .txt b {
+        font-size: 18px;
+      }
+      :host([variant="big"]) .ico {
+        transform: scale(1.4);
+        transform-origin: left top;
+      }
+      :host([variant="chips"]) .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      :host([variant="chips"]) .row button {
+        min-height: 40px;
+        border-radius: 20px;
+        padding: 4px 14px 4px 10px;
+      }
+      :host([variant="chips"]) .txt small {
+        display: none;
       }
     `,
   ];

@@ -104,6 +104,38 @@ export class AtriumDataWidget extends WidgetBase {
     </div>`;
   }
 
+  /** Big numbers; "numbers only" without totals uses the devices' first values. */
+  #summary(m: DataModel): Metric[] {
+    if (m.summary?.length || this.variant !== "summary") return m.summary ?? [];
+    return (m.groups ?? [])
+      .flatMap((g) => g.metrics.slice(0, 2).map((x) => ({ ...x, label: `${g.name} · ${x.label}` })))
+      .concat(
+        (m.rows ?? []).map((r) => ({
+          label: r.name,
+          value: r.value ?? "",
+          ...(r.tone ? { tone: r.tone } : {}),
+        })),
+      )
+      .slice(0, 6);
+  }
+
+  /** Design "list": a device as one row (status and its first value). */
+  #groupAsRow(g: MetricGroup): Row {
+    const first = g.metrics[0];
+    return {
+      id: g.id,
+      name: g.name,
+      sub: [g.sub, ...g.metrics.slice(1, 3).map((m) => `${m.label} ${m.value}${m.unit ? ` ${m.unit}` : ""}`)]
+        .filter(Boolean)
+        .join(" · "),
+      ...(first || g.status
+        ? { value: first ? `${first.value}${first.unit ? ` ${first.unit}` : ""}` : g.status?.label }
+        : {}),
+      ...(g.status?.tone || first?.tone ? { tone: g.status?.tone ?? first?.tone } : {}),
+      ...(g.entityId ? { entityId: g.entityId } : {}),
+    };
+  }
+
   #row(r: Row) {
     const toggle = r.toggle;
     const on = toggle ? this.#on(toggle.entityId, toggle.on) : false;
@@ -149,7 +181,7 @@ export class AtriumDataWidget extends WidgetBase {
     }
     return html`<div class="w">
       ${this.renderHead(m.note)}
-      ${m.summary?.length ? html`<div class="summary">${m.summary.map((s) => this.#stat(s))}</div>` : nothing}
+      ${this.#summary(m).length ? html`<div class="summary">${this.#summary(m).map((s) => this.#stat(s))}</div>` : nothing}
       ${
         m.toggles?.length
           ? html`<div class="toggles">
@@ -169,18 +201,26 @@ export class AtriumDataWidget extends WidgetBase {
           : nothing
       }
       ${
-        m.groups?.length
-          ? html`<div class="groups">
-              ${repeat(
-                m.groups,
-                (g) => g.id,
-                (g) => this.#group(g),
-              )}
-            </div>`
-          : nothing
+        this.variant === "summary" || !m.groups?.length
+          ? nothing
+          : this.variant === "list"
+            ? html`<div class="rows">
+                ${repeat(
+                  m.groups,
+                  (g) => g.id,
+                  (g) => this.#row(this.#groupAsRow(g)),
+                )}
+              </div>`
+            : html`<div class="groups">
+                ${repeat(
+                  m.groups,
+                  (g) => g.id,
+                  (g) => this.#group(g),
+                )}
+              </div>`
       }
       ${
-        m.rows?.length
+        m.rows?.length && this.variant !== "summary"
           ? html`<div class="rows">
               ${repeat(
                 m.rows,
@@ -197,6 +237,29 @@ export class AtriumDataWidget extends WidgetBase {
   static override styles = [
     widgetStyles,
     css`
+      :host([variant="compact"]) .w {
+        padding: 10px;
+        gap: 8px;
+      }
+      :host([variant="compact"]) .stat {
+        padding: 6px 8px;
+      }
+      :host([variant="compact"]) .stat .v {
+        font-size: 18px;
+      }
+      :host([variant="compact"]) .groups {
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      }
+      :host([variant="compact"]) .group {
+        padding: 8px 10px;
+        gap: 4px;
+      }
+      :host([variant="compact"]) .row {
+        min-height: 38px;
+      }
+      :host([variant="summary"]) .stat .v {
+        font-size: 32px;
+      }
       .row .pill {
         padding: 0 4px;
         min-height: 34px;

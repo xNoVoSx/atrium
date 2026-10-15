@@ -58,7 +58,7 @@ function el(
   };
 }
 
-export const EXTRA_WIDGETS: WidgetDef[] = [
+const RAW: WidgetDef[] = [
   // info
   el(
     "weather",
@@ -170,6 +170,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     WI.rooms,
     (hass) => Object.keys(hass.areas).length > 0,
     {
+      setup: true,
       minLevel: "simple",
       options: [AREA],
     },
@@ -184,6 +185,7 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     () => true,
     {
       size: "l",
+      setup: true,
       minLevel: "simple",
       options: [
         { key: "image", label: "wo.image", kind: "url", placeholder: "/local/floorplan.png" },
@@ -490,3 +492,38 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
     },
   ),
 ];
+
+/** Designs per widget type; the first one is the default look. */
+const VARIANTS: Record<string, string[]> = {
+  weather: ["full", "now", "forecast", "big"],
+  calendar: ["agenda", "compact"],
+  todo: ["standard", "compact"],
+  persons: ["avatars", "list", "chips"],
+  clock: ["standard", "analog", "minimal"],
+  sun: ["standard", "minimal"],
+  notifications: ["standard", "compact"],
+  activity: ["timeline", "list"],
+  room: ["standard", "minimal", "big"],
+  covers: ["tiles", "list", "big", "chips"],
+  fans: ["tiles", "list", "big", "chips"],
+  vacuum: ["tiles", "list", "big", "chips"],
+  appliances: ["tiles", "list", "big", "chips"],
+  timers: ["tiles", "list", "big", "chips"],
+  switches: ["tiles", "list", "big", "chips"],
+  scripts: ["tiles", "list", "big", "chips"],
+  locks: ["tiles", "list", "big", "chips"],
+  cameras: ["grid", "big"],
+  entities: ["grid", "list"],
+  stat: ["standard", "big", "minimal", "bar"],
+  button: ["standard", "round", "wide"],
+  gauge: ["standard", "ring", "bar"],
+  note: ["standard", "big"],
+  links: ["grid", "list", "chips"],
+};
+
+export const EXTRA_WIDGETS: WidgetDef[] = RAW.map((d) => {
+  const list = VARIANTS[d.type];
+  return list && !d.variants
+    ? { ...d, variants: list.map((v) => [v, `v.${v}` as MessageKey] as [string, MessageKey]) }
+    : d;
+});

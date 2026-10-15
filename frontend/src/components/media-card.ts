@@ -64,12 +64,21 @@ export class AtriumMediaCard extends LitElement {
       (s.attributes.media_artist as string | undefined) ||
       (s.attributes.app_name as string | undefined) ||
       "";
-    const picture = s.attributes.entity_picture as string | undefined;
+    // Like Home Assistant's own cards: the local proxy first (some integrations,
+    // e.g. Plex, give a path that only their own server knows).
+    const picture = (s.attributes.entity_picture_local ?? s.attributes.entity_picture) as string | undefined;
     const volume = this._volume ?? Math.round(Number(s.attributes.volume_level ?? 0) * 100);
     const stateLabel = t(`media.${s.state}` as MessageKey) || t(`state.${s.state}` as MessageKey) || s.state;
     return html`<div class="card ${playing ? "playing" : ""}">
       <div class="top">
-        ${picture && on ? html`<img class="art" src=${picture} alt="" />` : html`<span class="art empty"></span>`}
+        ${picture && on
+          ? html`<img
+              class="art"
+              src=${picture}
+              alt=""
+              @error=${(e: Event) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+            />`
+          : html`<span class="art empty"></span>`}
         <div class="text">
           <div class="name">${nameOf(hass, this.entityId)}</div>
           <div class="title">${title || stateLabel}</div>

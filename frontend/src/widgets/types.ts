@@ -61,6 +61,8 @@ export interface WidgetDef {
   /** Shows nothing until set up (e.g. an entity chosen): the catalogue previews sample data. */
   setup?: boolean;
   options?: OptionField[];
+  /** Designs the widget can be drawn in (stored as options.variant); the first is the default. */
+  variants?: Array<[string, MessageKey]>;
   /** Only one per page makes sense (e.g. header). */
   single?: boolean;
   render: (ctx: PanelContext, config: WidgetInstance, demo: boolean) => TemplateResult;

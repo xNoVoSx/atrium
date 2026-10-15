@@ -87,6 +87,10 @@ export class AtriumEntitiesWidget extends WidgetBase {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
+      :host([variant="list"]) .grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+      }
     `,
   ];
 }
@@ -307,6 +311,37 @@ export class AtriumGaugeWidget extends WidgetBase {
     const tone = Number.isFinite(warn) && value >= warn ? "warn" : "";
     // Half circle from 180° to 0°, radius 40.
     const len = Math.PI * 40;
+    if (this.variant === "ring") {
+      const c = 2 * Math.PI * 40;
+      return html`<div class="w">
+        ${this.renderHead()}
+        <div class="gauge ring ${tone}">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="40" class="bg" />
+            <circle
+              cx="50"
+              cy="50"
+              r="40"
+              class="fg"
+              transform="rotate(-90 50 50)"
+              style="stroke-dasharray:${c};stroke-dashoffset:${c * (1 - p)}"
+            />
+          </svg>
+          <div class="gv center">${fmt(this.ctx.locale, value, 1)}<small>${unit}</small></div>
+        </div>
+      </div>`;
+    }
+    if (this.variant === "bar")
+      return html`<div class="w">
+        ${this.renderHead()}
+        <div class="gbar ${tone}">
+          <div class="gv left">${fmt(this.ctx.locale, value, 1)}<small>${unit}</small></div>
+          <div class="track"><span style="width:${p * 100}%"></span></div>
+          <div class="ends">
+            <span>${fmt(this.ctx.locale, min, 0)}</span><span>${fmt(this.ctx.locale, max, 0)}</span>
+          </div>
+        </div>
+      </div>`;
     return html`<div class="w">
       ${this.renderHead()}
       <div class="gauge ${tone}">
@@ -366,6 +401,46 @@ export class AtriumGaugeWidget extends WidgetBase {
         color: var(--a-text2);
         margin-left: 3px;
       }
+      .gauge.ring {
+        max-width: 200px;
+      }
+      .gv.center {
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .gbar {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .gv.left {
+        position: static;
+        text-align: left;
+      }
+      .gbar .track {
+        height: 14px;
+        border-radius: 7px;
+        background: var(--a-s3);
+        overflow: hidden;
+      }
+      .gbar .track span {
+        display: block;
+        height: 100%;
+        background: var(--a-sage);
+        border-radius: 7px;
+        transition: width calc(var(--a-motion, 1) * 800ms) cubic-bezier(0.2, 0.9, 0.25, 1);
+      }
+      .gbar.warn .track span {
+        background: var(--a-terra);
+      }
+      .ends {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--a-text3);
+      }
     `,
   ];
 }
@@ -406,6 +481,10 @@ export class AtriumNoteWidget extends WidgetBase {
         margin: 0;
         font-size: 16px;
         line-height: 1.45;
+      }
+      :host([variant="big"]) p {
+        font-size: 24px;
+        line-height: 1.3;
       }
     `,
   ];
@@ -505,6 +584,20 @@ export class AtriumLinksWidget extends WidgetBase {
       }
       a:hover svg {
         transform: translateX(3px);
+      }
+      :host([variant="list"]) .links {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+      }
+      :host([variant="chips"]) .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      :host([variant="chips"]) a {
+        min-height: 38px;
+        border-radius: 19px;
+        padding: 0 8px 0 14px;
       }
     `,
   ];
@@ -607,6 +700,9 @@ export class AtriumCamerasWidget extends WidgetBase {
         to {
           background-position: -100% 0;
         }
+      }
+      :host([variant="big"]) .cams {
+        grid-template-columns: minmax(0, 1fr);
       }
     `,
   ];
@@ -749,6 +845,13 @@ export class AtriumStatWidget extends WidgetBase {
         >${value === null ? (s?.state ?? "—") : fmt(this.ctx.locale, value, 1)}<small>${unit}</small>
         ${Math.abs(trend) > 0.05 ? html`<span class="tr ${trend > 0 ? "up" : "down"}">${trend > 0 ? "↗" : "↘"}</span>` : nothing}</span
       >
+      ${
+        this.variant === "bar" && value !== null && max > min
+          ? html`<span class="vbar"
+              ><span style="width:${((value - min) / (max - min)) * 100}%"></span
+            ></span>`
+          : nothing
+      }
       ${path ? html`<svg viewBox="0 0 100 32" preserveAspectRatio="none" class="spark">${svg`<path d=${path}/>`}</svg>` : nothing}
     </button>`;
   }
@@ -826,6 +929,39 @@ export class AtriumStatWidget extends WidgetBase {
         }
         to {
           stroke-dashoffset: 0;
+        }
+      }
+      :host([variant="big"]) .sv {
+        font-size: 60px;
+      }
+      :host([variant="big"]) .spark {
+        height: 48px;
+      }
+      :host([variant="minimal"]) .spark,
+      :host([variant="minimal"]) .tr {
+        display: none;
+      }
+      :host([variant="bar"]) .spark {
+        display: none;
+      }
+      .vbar {
+        height: 10px;
+        border-radius: 5px;
+        background: var(--a-s3);
+        overflow: hidden;
+      }
+      .vbar span {
+        display: block;
+        height: 100%;
+        background: var(--a-ocher);
+        border-radius: 5px;
+        transform-origin: left;
+        animation: grow calc(var(--a-motion, 1) * 800ms) cubic-bezier(0.2, 0.9, 0.25, 1);
+        transition: width calc(var(--a-motion, 1) * 600ms);
+      }
+      @keyframes grow {
+        from {
+          transform: scaleX(0);
         }
       }
     `,
@@ -967,6 +1103,30 @@ export class AtriumButtonWidget extends WidgetBase {
           transform: scale(16);
           opacity: 0;
         }
+      }
+      :host([variant="round"]) .big {
+        width: auto;
+        min-height: 0;
+        aspect-ratio: 1;
+        max-width: 160px;
+        margin: 0 auto;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      :host([variant="round"]) .bl {
+        font-size: 15px;
+      }
+      :host([variant="wide"]) .big {
+        min-height: 64px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 14px;
+      }
+      :host([variant="wide"]) .bs {
+        margin-left: auto;
       }
     `,
   ];

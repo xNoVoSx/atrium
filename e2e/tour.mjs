@@ -58,6 +58,7 @@ async function open(browser, cfg, tokens, options) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  page.on("response", (r) => r.status() === 404 && errors.push(`404 ${r.url().replace(/token=[^&]+/, "token=…")}`));
   await page.goto(`${cfg.haUrl}/atrium`);
   await waitFor(async () => (await readPanel(page))?.tiles.length > 0, { timeout: 30000 });
   await page.waitForTimeout(800);
@@ -77,6 +78,13 @@ async function main() {
 
   const desk = await open(browser, cfg, tokens, { viewport: { width: 1440, height: 900 } });
   const p = desk.page;
+  const pages = ["/atrium/rooms", "/atrium/room/wohnzimmer_unten", "/atrium/categories", ...["light", "climate", "energy", "security", "media", "batteries"].map((c) => `/atrium/category/${c}`)];
+  if (only === "pages") {
+    for (const path of pages) {
+      await go(p, path);
+      await shot(p, `desk-${path.split("/").pop()}`);
+    }
+  }
   if (!only || only === "desk") {
     await shot(p, "desk-home");
     const help = p.locator("atrium-scenes-module button.help");
@@ -134,6 +142,12 @@ async function main() {
     isMobile: true,
     hasTouch: true,
   });
+  if (only === "pages") {
+    for (const path of pages) {
+      await go(phone.page, path);
+      await shot(phone.page, `phone-${path.split("/").pop()}`);
+    }
+  }
   if (!only || only === "phone") {
     await shot(phone.page, "phone-home");
     await click(phone.page, '[data-nav="more"]');
