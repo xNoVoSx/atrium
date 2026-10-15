@@ -24,6 +24,7 @@ import { customPages } from "../data/pages";
 import { WIDGETS } from "../widgets/catalog";
 import { WI } from "../widgets/icons";
 import { ACCENTS, DENSITIES, type ThemePreference } from "../theme/tokens";
+import { SCREENSAVER_CHOICES } from "../components/screensaver";
 
 export class AtriumRoomsPage extends LitElement {
   static override properties = { ctx: { attribute: false } };
@@ -382,11 +383,13 @@ export class AtriumSettingsPage extends LitElement {
     ctx: { attribute: false },
     theme: {},
     version: {},
+    saver: { type: Number },
     _tab: { state: true },
   };
   declare ctx: PanelContext;
   declare theme: ThemePreference;
   declare version: string;
+  declare saver: number;
   declare _tab: string;
 
   constructor() {
@@ -535,6 +538,23 @@ export class AtriumSettingsPage extends LitElement {
           )}
         </div>
         <p class="hint">${t("settings.motion_hint")}</p>
+      </section>
+      <section>
+        <h2 class="label">${t("settings.saver")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.saver")}>
+          ${SCREENSAVER_CHOICES.map(
+            (m) =>
+              html`<button
+                type="button"
+                data-saver=${m}
+                aria-pressed=${String(this.saver === m)}
+                @click=${() => this.dispatchEvent(new CustomEvent("atrium-screensaver", { detail: m, bubbles: true, composed: true }))}
+              >
+                ${m ? `${m} min` : t("settings.motion_off")}
+              </button>`,
+          )}
+        </div>
+        <p class="hint">${t("settings.saver_hint")}</p>
       </section>
       <section>
         <h2 class="label">${t("settings.accent")}</h2>

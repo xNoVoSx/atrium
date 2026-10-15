@@ -19,6 +19,7 @@ import { ACCENTS, DENSITIES, tokens, type Density, type ThemePreference } from "
 import type { HomeAssistant, PanelInfo, Route } from "./types/hass";
 import { reportClient } from "./util/diagnostics";
 import { WI } from "./widgets/icons";
+import { readScreensaverMinutes, SCREENSAVER_KEY } from "./components/screensaver";
 import { PULL_THRESHOLD_PX, attachPullRefresh } from "./util/pull-refresh";
 
 export const VERSION = __ATRIUM_VERSION__;
@@ -69,6 +70,7 @@ export class AtriumPanel extends LitElement {
     _search: { state: true },
     _reducedMotion: { state: true },
     _toast: { state: true },
+    _saverMin: { state: true },
     _offline: { state: true },
   };
 
@@ -90,6 +92,8 @@ export class AtriumPanel extends LitElement {
   declare _toast: string | null;
   /** The connection to Home Assistant is down. */
   declare _offline: boolean;
+  /** Screensaver after this many idle minutes on this device (0 = off). */
+  declare _saverMin: number;
   #toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly store = new EntityStore();
@@ -118,6 +122,7 @@ export class AtriumPanel extends LitElement {
     this._reducedMotion = false;
     this._toast = null;
     this._offline = false;
+    this._saverMin = readScreensaverMinutes();
   }
 
   get hass(): HomeAssistant | undefined {
@@ -390,7 +395,16 @@ export class AtriumPanel extends LitElement {
           .ctx=${ctx}
           .theme=${this._themePref}
           .version=${VERSION}
+          .saver=${this._saverMin}
           @atrium-theme=${(ev: CustomEvent<ThemePreference>) => this.#setTheme(ev.detail)}
+          @atrium-screensaver=${(ev: CustomEvent<number>) => {
+            this._saverMin = ev.detail;
+            try {
+              localStorage.setItem(SCREENSAVER_KEY, String(ev.detail));
+            } catch {
+              // no storage: lasts for this session
+            }
+          }}
         ></atrium-settings-page>`;
     }
   }
@@ -681,6 +695,7 @@ export class AtriumPanel extends LitElement {
         }
       </div>
       ${this.#renderControl(ctx)}
+      <atrium-screensaver .ctx=${ctx} .minutes=${this._saverMin}></atrium-screensaver>
       ${this._offline ? html`<div class="offline" role="status">${ctx.t("toast.offline")}</div>` : nothing}
       ${
         this._toast

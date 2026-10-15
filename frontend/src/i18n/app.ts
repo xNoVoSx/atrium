@@ -2,6 +2,11 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "settings.saver": "Screensaver on this device",
+  "settings.saver_hint":
+    "For wall tablets: after this time without touch a dark clock appears. Touch to wake.",
+  "saver.title": "Screensaver",
+  "saver.touch": "Touch to continue",
   "greet.morning": "Good morning",
   "greet.day": "Hello",
   "greet.evening": "Good evening",
@@ -115,6 +120,11 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "settings.saver": "Bildschirmschoner auf diesem Gerät",
+  "settings.saver_hint":
+    "Für Wand-Tablets: Nach dieser Zeit ohne Berührung erscheint eine dunkle Uhr. Antippen weckt.",
+  "saver.title": "Bildschirmschoner",
+  "saver.touch": "Zum Weitermachen antippen",
   "greet.morning": "Guten Morgen",
   "greet.day": "Hallo",
   "greet.evening": "Guten Abend",
