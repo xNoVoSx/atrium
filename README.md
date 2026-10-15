@@ -17,11 +17,6 @@ Lovelace card.
 - English and German UI
 - Installation through HACS
 
-## Development
-
-`dev/compose.yaml` starts a disposable Home Assistant instance for testing. See the comments in the
-file for the available variables.
-
 ## License
 
 [MIT](LICENSE)
