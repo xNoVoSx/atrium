@@ -5,14 +5,21 @@ import { SelectorController } from "../data/entity-store";
 import { daysUntil, localDate, wastePickups, weatherEntity } from "../data/home";
 import { weatherCondition } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
+import type { WidgetInstance } from "../data/pages";
+import { weatherIcon, weatherIconStyles } from "../widgets/weather-icon";
 import { formatDate, formatTemperature, formatTime } from "../util/format";
 import { relativeDay } from "./waste-module";
 
 /** Clock and date on the left; weather and the next bin to put out on the right. */
 export class AtriumHeaderModule extends LitElement {
-  static override properties = { ctx: { attribute: false }, _now: { state: true } };
+  static override properties = {
+    ctx: { attribute: false },
+    config: { attribute: false },
+    _now: { state: true },
+  };
 
   declare ctx: PanelContext;
+  declare config: WidgetInstance | undefined;
   declare _now: Date;
 
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -61,8 +68,23 @@ export class AtriumHeaderModule extends LitElement {
     const info = this.#info.value;
     const weather = info?.weather;
     const waste = info?.waste;
+    const greet = this.config?.options?.greeting ?? this.ctx.level === "simple";
+    const hour = this._now.getHours();
+    const first = (this.ctx.store.hass?.user?.name ?? "").split(" ")[0];
+    const hello = t(
+      hour < 5
+        ? "greet.night"
+        : hour < 11
+          ? "greet.morning"
+          : hour < 18
+            ? "greet.day"
+            : hour < 22
+              ? "greet.evening"
+              : "greet.night",
+    );
     return html`
       <div class="when">
+        ${greet ? html`<div class="greet">${hello}${first ? `, ${first}` : ""}</div>` : nothing}
         <div class="time">${formatTime(this._now, locale)}</div>
         <div class="date">${formatDate(this._now, locale)}</div>
       </div>
@@ -70,6 +92,7 @@ export class AtriumHeaderModule extends LitElement {
         ${
           weather
             ? html`<div class="weather">
+                <span class="wx-ico">${weatherIcon(weather.state)}</span>
                 <span class="temp"
                   >${formatTemperature(Number.isNaN(weather.temp) ? null : weather.temp, locale, 0)}</span
                 >
@@ -94,7 +117,26 @@ export class AtriumHeaderModule extends LitElement {
 
   static override styles = [
     shared,
+    weatherIconStyles,
     css`
+      .greet {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--a-text2);
+        margin-bottom: 4px;
+        animation: greet-in calc(var(--a-motion, 1) * 600ms) ease-out;
+      }
+      @keyframes greet-in {
+        from {
+          opacity: 0;
+          transform: translateX(-6px);
+        }
+      }
+      .wx-ico svg {
+        width: 28px;
+        height: 28px;
+        align-self: center;
+      }
       :host {
         display: flex;
         justify-content: space-between;

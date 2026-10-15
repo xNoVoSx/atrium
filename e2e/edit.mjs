@@ -366,6 +366,16 @@ async function main() {
     check("simple level hides categories", !navSimple.includes("categories") && navSimple.includes("home"), navSimple.join(","));
     await ws(page, { type: "atrium/settings/set_user", settings: {} });
 
+    // A failing action shows a message instead of failing silently.
+    await page.evaluate(() => {
+      void document.querySelector("home-assistant").hass.callService("atrium_e2e_missing", "nothing");
+    });
+    const toast = await waitFor(
+      async () => page.evaluate((d) => Boolean(eval(d)(document, "atrium-panel")?.shadowRoot.querySelector(".toast")), deep),
+      { timeout: 5000 },
+    );
+    check("failed action shows a message", toast != null);
+
     check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
   } finally {
     await ws(page, { type: "atrium/settings/set_layout", layout: original.layout });

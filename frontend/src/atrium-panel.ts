@@ -68,6 +68,8 @@ export class AtriumPanel extends LitElement {
     _more: { state: true },
     _search: { state: true },
     _reducedMotion: { state: true },
+    _toast: { state: true },
+    _offline: { state: true },
   };
 
   declare narrow: boolean;
@@ -84,6 +86,11 @@ export class AtriumPanel extends LitElement {
   declare _more: boolean;
   declare _search: boolean;
   declare _reducedMotion: boolean;
+  /** Short message at the bottom (e.g. an action that failed). */
+  declare _toast: string | null;
+  /** The connection to Home Assistant is down. */
+  declare _offline: boolean;
+  #toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly store = new EntityStore();
   #hass: HomeAssistant | undefined;
@@ -109,6 +116,8 @@ export class AtriumPanel extends LitElement {
     this._more = false;
     this._search = false;
     this._reducedMotion = false;
+    this._toast = null;
+    this._offline = false;
   }
 
   get hass(): HomeAssistant | undefined {
@@ -144,6 +153,7 @@ export class AtriumPanel extends LitElement {
     this.#motionQuery?.addEventListener?.("change", this.#onMotion);
     // Capture: Home Assistant's own quick search also listens for Ctrl+K.
     window.addEventListener("keydown", this.#onKey, { capture: true });
+    window.addEventListener("unhandledrejection", this.#onRejection);
     this.#detachPull = attachPullRefresh({
       target: this,
       scrollTop: () => document.scrollingElement?.scrollTop ?? 0,
@@ -161,6 +171,9 @@ export class AtriumPanel extends LitElement {
     this.#detachPull?.();
     this.#motionQuery?.removeEventListener?.("change", this.#onMotion);
     window.removeEventListener("keydown", this.#onKey, { capture: true });
+    window.removeEventListener("unhandledrejection", this.#onRejection);
+    this.#hass?.connection.removeEventListener?.("disconnected", this.#onDisconnected);
+    this.#hass?.connection.removeEventListener?.("ready", this.#onReady);
     this.#connected = false;
   }
 
@@ -186,7 +199,29 @@ export class AtriumPanel extends LitElement {
       this._user = settings.user;
     });
     this.#unsubSettings.catch(() => undefined); // integration not loaded: defaults
+    const conn = this.#hass.connection;
+    conn.addEventListener?.("disconnected", this.#onDisconnected);
+    conn.addEventListener?.("ready", this.#onReady);
   }
+
+  #onDisconnected = () => (this._offline = true);
+  #onReady = () => (this._offline = false);
+
+  showToast(message: string): void {
+    this._toast = message;
+    clearTimeout(this.#toastTimer);
+    this.#toastTimer = setTimeout(() => (this._toast = null), 4500);
+  }
+
+  // Service calls are fired and forgotten all over the panel; when one fails,
+  // Home Assistant rejects with { code, message }. Say so instead of staying silent.
+  #onRejection = (ev: PromiseRejectionEvent) => {
+    const reason = ev.reason as { code?: unknown; message?: unknown } | undefined;
+    if (!reason || typeof reason !== "object" || typeof reason.message !== "string" || !("code" in reason))
+      return;
+    ev.preventDefault();
+    this.showToast(`${this.#ctx?.t("toast.failed") ?? "Failed"}: ${reason.message}`);
+  };
 
   #applyTheme(): void {
     const dark =
@@ -646,6 +681,17 @@ export class AtriumPanel extends LitElement {
         }
       </div>
       ${this.#renderControl(ctx)}
+      ${this._offline ? html`<div class="offline" role="status">${ctx.t("toast.offline")}</div>` : nothing}
+      ${
+        this._toast
+          ? html`<div class="toast" role="alert">
+              <span>${this._toast}</span>
+              <button type="button" aria-label=${ctx.t("control.close")} @click=${() => (this._toast = null)}>
+                ${icon(ICONS.close, 16, 2)}
+              </button>
+            </div>`
+          : nothing
+      }
     `;
   }
 
@@ -944,6 +990,68 @@ export class AtriumPanel extends LitElement {
         color: var(--a-text2);
         font-size: 13px;
         font-weight: 600;
+      }
+
+      /* Messages */
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(96px + env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        z-index: 30;
+        max-width: min(560px, calc(100vw - 32px));
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 8px 10px 16px;
+        border-radius: var(--a-radius);
+        background: var(--a-terra);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        animation: toast-in calc(var(--a-motion, 1) * 260ms) cubic-bezier(0.2, 0.9, 0.25, 1);
+      }
+      :host(:not([narrow])) .toast {
+        bottom: 24px;
+      }
+      .toast button {
+        border: 0;
+        background: rgba(255, 255, 255, 0.18);
+        color: inherit;
+        width: 32px;
+        height: 32px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex: none;
+      }
+      .offline {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        padding: 8px 16px;
+        text-align: center;
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+        font-size: 13px;
+        font-weight: 600;
+        animation: slide-down calc(var(--a-motion, 1) * 260ms) ease-out;
+      }
+      @keyframes toast-in {
+        from {
+          transform: translate(-50%, 16px);
+          opacity: 0;
+        }
+      }
+      @keyframes slide-down {
+        from {
+          transform: translateY(-100%);
+        }
       }
 
       /* Pull to refresh */

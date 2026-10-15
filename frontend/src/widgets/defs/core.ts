@@ -21,7 +21,8 @@ export const CORE_WIDGETS: WidgetDef[] = [
     minLevel: "simple",
     single: true,
     available: () => true,
-    render: (ctx) => html`<atrium-header-module .ctx=${ctx}></atrium-header-module>`,
+    options: [{ key: "greeting", label: "wo.greeting", kind: "boolean" }],
+    render: (ctx, c) => html`<atrium-header-module .ctx=${ctx} .config=${c}></atrium-header-module>`,
   },
   {
     type: "status",

@@ -2,6 +2,13 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "greet.morning": "Good morning",
+  "greet.day": "Hello",
+  "greet.evening": "Good evening",
+  "greet.night": "Good night",
+  "wo.greeting": "Greeting with name",
+  "toast.failed": "Did not work",
+  "toast.offline": "No connection to Home Assistant — reconnecting …",
   "settings.accent": "Accent colour",
   "settings.density": "Size",
   "settings.density_compact": "Compact",
@@ -108,6 +115,13 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "greet.morning": "Guten Morgen",
+  "greet.day": "Hallo",
+  "greet.evening": "Guten Abend",
+  "greet.night": "Gute Nacht",
+  "wo.greeting": "Begrüßung mit Namen",
+  "toast.failed": "Hat nicht geklappt",
+  "toast.offline": "Keine Verbindung zu Home Assistant – verbinde neu …",
   "settings.accent": "Akzentfarbe",
   "settings.density": "Größe",
   "settings.density_compact": "Kompakt",
