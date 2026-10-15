@@ -71,14 +71,16 @@ export class AtriumMediaCard extends LitElement {
     const stateLabel = t(`media.${s.state}` as MessageKey) || t(`state.${s.state}` as MessageKey) || s.state;
     return html`<div class="card ${playing ? "playing" : ""}">
       <div class="top">
-        ${picture && on
-          ? html`<img
-              class="art"
-              src=${picture}
-              alt=""
-              @error=${(e: Event) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
-            />`
-          : html`<span class="art empty"></span>`}
+        ${
+          picture && on
+            ? html`<img
+                class="art"
+                src=${picture}
+                alt=""
+                @error=${(e: Event) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+              />`
+            : html`<span class="art empty"></span>`
+        }
         <div class="text">
           <div class="name">${nameOf(hass, this.entityId)}</div>
           <div class="title">${title || stateLabel}</div>
