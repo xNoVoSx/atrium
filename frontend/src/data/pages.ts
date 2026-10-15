@@ -86,12 +86,15 @@ export const roomPageId = (areaId: string) => `room:${areaId}`;
 
 export function page(raw: Record<string, unknown> | undefined, id: string): PageConfig | undefined {
   if (id === HOME_PAGE) return homePage(raw);
-  return pagesOf(raw)[id] ?? (id.startsWith("room:") ? { id, widgets: [] } : undefined);
+  const embedded = id.startsWith("room:") || id.startsWith("category:");
+  return pagesOf(raw)[id] ?? (embedded ? { id, widgets: [] } : undefined);
 }
 
 /** Pages created by admins, in creation order. */
 export function customPages(raw: Record<string, unknown> | undefined): PageConfig[] {
-  return Object.values(pagesOf(raw)).filter((p) => p.id !== HOME_PAGE && !p.id.startsWith("room:"));
+  return Object.values(pagesOf(raw)).filter(
+    (p) => p.id !== HOME_PAGE && !p.id.startsWith("room:") && !p.id.startsWith("category:"),
+  );
 }
 
 export function savePage(raw: Record<string, unknown>, config: PageConfig): Record<string, unknown> {

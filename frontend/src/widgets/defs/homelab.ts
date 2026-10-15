@@ -5,6 +5,7 @@
 import { html } from "lit";
 import { adapterAvailable } from "../adapters";
 import { PLATFORMS } from "../adapters/homelab";
+import { MORE_PLATFORMS } from "../adapters/more";
 import { WI } from "../icons";
 import type { WidgetDef, WidgetGroup } from "../types";
 import type { MessageKey } from "../../i18n";
@@ -56,4 +57,9 @@ export const HOMELAB_WIDGETS: WidgetDef[] = [
   dataWidget("printer", "household", WI.printer, PLATFORMS.printer, "m", "standard"),
   dataWidget("updates", "server", WI.update, ["update"]),
   dataWidget("backup", "server", WI.backup, ["backup"]),
+  dataWidget("price", "energy", WI.energy, MORE_PLATFORMS.price, "m", "standard"),
+  dataWidget("charger", "energy", WI.ups, MORE_PLATFORMS.charger, "m", "standard"),
+  dataWidget("vehicle", "energy", WI.battery, MORE_PLATFORMS.vehicle, "m", "simple"),
+  dataWidget("warnings", "info", WI.alarm, MORE_PLATFORMS.warnings, "m", "simple"),
+  dataWidget("air", "comfort", WI.water, ["sensor"], "m", "standard"),
 ];

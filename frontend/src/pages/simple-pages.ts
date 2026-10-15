@@ -250,6 +250,16 @@ export class AtriumCategoryPage extends LitElement {
   }
 
   protected override render() {
+    return html`${this.#content()}
+      <atrium-widget-page
+        class="extra"
+        .ctx=${this.ctx}
+        .pageId=${`category:${this.category}`}
+        embedded
+      ></atrium-widget-page>`;
+  }
+
+  #content() {
     const hass = this.ctx.store.hass;
     if (!hass) return nothing;
     const { t } = this.ctx;

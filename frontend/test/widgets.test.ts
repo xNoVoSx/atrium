@@ -313,3 +313,58 @@ describe("catalogue completeness", () => {
     for (const tag of widgetTags) expect(defs.includes(`<${tag}`), tag).toBe(true);
   });
 });
+
+describe("energy, warning and air adapters", () => {
+  const make = (
+    list: Array<[string, string, Record<string, unknown>, Record<string, unknown>]>,
+  ): HomeAssistant => {
+    const base = fakeHass();
+    const states = { ...base.states };
+    const entities = { ...base.entities };
+    for (const [id, value, attrs, entry] of list) {
+      states[id] = state(id, value, attrs);
+      entities[id] = { entity_id: id, labels: [], ...entry };
+    }
+    return { ...base, states, entities };
+  };
+
+  it("reads a Nord Pool price with its day range", () => {
+    const hass = make([
+      [
+        "sensor.nordpool_kwh_de",
+        "0.15",
+        { unit_of_measurement: "EUR/kWh", today: [0.1, 0.2, 0.3, 0.4] },
+        { platform: "nordpool" },
+      ],
+    ]);
+    const m = ADAPTERS.price?.(hass, { t, locale: "en", options: {} });
+    expect(m?.summary?.map((x) => x.value)).toEqual(["0.15", "0.1", "0.4", "0.25"]);
+    expect(m?.summary?.[0]?.tone).toBe("ok");
+  });
+
+  it("lists DWD warnings with their level", () => {
+    const hass = make([
+      [
+        "sensor.dwd_current_warning_level",
+        "2",
+        { warning_count: 1, warning_1_headline: "Storm", warning_1_level: 2, warning_1_description: "Gusts" },
+        { platform: "dwd_weather_warnings" },
+      ],
+    ]);
+    const m = ADAPTERS.warnings?.(hass, { t, locale: "en", options: {} });
+    expect(m?.summary?.[0]).toMatchObject({ value: "2", tone: "warn" });
+    expect(m?.rows?.[0]).toMatchObject({ name: "Storm", tone: "warn" });
+  });
+
+  it("puts bad air first", () => {
+    const hass = make([
+      ["sensor.co2_office", "600", { device_class: "carbon_dioxide", unit_of_measurement: "ppm" }, {}],
+      ["sensor.co2_bedroom", "1600", { device_class: "carbon_dioxide", unit_of_measurement: "ppm" }, {}],
+    ]);
+    const m = ADAPTERS.air?.(hass, { t, locale: "en", options: {} });
+    expect(m?.rows?.map((r) => [r.id, r.tone])).toEqual([
+      ["sensor.co2_bedroom", "bad"],
+      ["sensor.co2_office", "ok"],
+    ]);
+  });
+});

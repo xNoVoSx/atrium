@@ -4,9 +4,10 @@ import type { HomeAssistant } from "../../types/hass";
 import type { Adapter } from "../types";
 import { DEMO as HOMELAB_DEMO, HOMELAB_ADAPTERS } from "./homelab";
 import { HOUSE_ADAPTERS, HOUSE_DEMO } from "./house";
+import { MORE_ADAPTERS, MORE_DEMO } from "./more";
 
-export const ADAPTERS: Record<string, Adapter> = { ...HOMELAB_ADAPTERS, ...HOUSE_ADAPTERS };
-export const DEMO = { ...HOMELAB_DEMO, ...HOUSE_DEMO };
+export const ADAPTERS: Record<string, Adapter> = { ...HOMELAB_ADAPTERS, ...HOUSE_ADAPTERS, ...MORE_ADAPTERS };
+export const DEMO = { ...HOMELAB_DEMO, ...HOUSE_DEMO, ...MORE_DEMO };
 
 /** Does this house have anything for the adapter? */
 export const adapterAvailable = (key: string, hass: HomeAssistant): boolean =>

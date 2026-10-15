@@ -689,7 +689,10 @@ export class AtriumPanel extends LitElement {
           }
         </main>
         ${
-          (route.page === "home" || route.page === "room" || route.page === "page") &&
+          (route.page === "home" ||
+            route.page === "room" ||
+            route.page === "page" ||
+            route.page === "category") &&
           (ctx.isAdmin || ctx.level !== "simple")
             ? html`<button
                 type="button"
