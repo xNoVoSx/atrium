@@ -12,7 +12,8 @@ export const tokens = css`
     --a-ocher: #e2b866;
     --a-on-ocher: #2a1e05;
     --a-slate: #4a6d8f;
-    --a-sage: #5e7f63;
+    /* Sage, darkened from #5E7F63 so white text reaches WCAG AA. */
+    --a-sage: #557459;
     --a-terra: #a4533a;
   }
   :host([theme="dark"]) {

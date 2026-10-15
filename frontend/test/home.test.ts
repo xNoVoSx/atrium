@@ -3,6 +3,8 @@ import {
   areaTemperature,
   climateZones,
   lowBatteries,
+  garageDoors,
+  batteries,
   openItems,
   rooms,
   sceneEntities,
@@ -59,28 +61,46 @@ describe("heating", () => {
 });
 
 describe("status", () => {
-  it("finds open doors and garage covers, not closed ones", () => {
-    const hass = withStates({
+  const hass = withStates(
+    {
       "binary_sensor.door": state("binary_sensor.door", "on", { device_class: "door" }),
       "binary_sensor.motion": state("binary_sensor.motion", "on", { device_class: "motion" }),
-      "cover.garage": state("cover.garage", "open", { device_class: "garage" }),
+      "binary_sensor.trv_window": state("binary_sensor.trv_window", "on", { device_class: "window" }),
+      "climate.trv": state("climate.trv", "heat", {}),
+      "binary_sensor.garage": state("binary_sensor.garage", "off", { device_class: "garage_door" }),
+      "cover.gate": state("cover.gate", "open", { device_class: "gate" }),
       "cover.blind": state("cover.blind", "open", { device_class: "blind" }),
-    });
-    expect(
-      openItems(hass)
-        .map((o) => o.entityId)
-        .sort(),
-    ).toEqual(["binary_sensor.door", "cover.garage"]);
+    },
+    {
+      "binary_sensor.trv_window": { entity_id: "binary_sensor.trv_window", labels: [], device_id: "trv" },
+      "climate.trv": { entity_id: "climate.trv", labels: [], device_id: "trv" },
+    },
+  );
+
+  it("finds open doors, not garages, blinds or thermostat window detection", () => {
+    expect(openItems(hass).map((o) => o.entityId)).toEqual(["binary_sensor.door"]);
+  });
+
+  it("lists garage doors and gates with their state", () => {
+    expect(garageDoors(hass).map((g) => [g.entityId, g.open])).toEqual([
+      ["binary_sensor.garage", false],
+      ["cover.gate", true],
+    ]);
   });
 
   it("lists low batteries lowest first, ignoring unknown values", () => {
-    const hass = withStates({
+    const h = withStates({
       "sensor.a_battery": state("sensor.a_battery", "12", { device_class: "battery" }),
       "sensor.b_battery": state("sensor.b_battery", "1", { device_class: "battery" }),
       "sensor.c_battery": state("sensor.c_battery", "80", { device_class: "battery" }),
       "sensor.d_battery": state("sensor.d_battery", "unavailable", { device_class: "battery" }),
     });
-    expect(lowBatteries(hass)).toEqual(["sensor.b_battery", "sensor.a_battery"]);
+    expect(lowBatteries(h)).toEqual(["sensor.b_battery", "sensor.a_battery"]);
+    expect(batteries(h).map((b) => [b.entityId, b.low])).toEqual([
+      ["sensor.b_battery", true],
+      ["sensor.a_battery", true],
+      ["sensor.c_battery", false],
+    ]);
   });
 });
 

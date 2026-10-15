@@ -139,6 +139,42 @@ async function main() {
   await appPage.screenshot({ path: `${SHOTS}app.png`, fullPage: true });
   await deskPage.screenshot({ path: `${SHOTS}desktop.png`, fullPage: true });
 
+  // Status: garage door always shown in its real state; thermostat window detection is not.
+  const allStates = await adminRest(cfg, "states");
+  const garage = allStates.find(
+    (s) => s.entity_id.startsWith("binary_sensor.") && s.attributes.device_class === "garage_door",
+  );
+  const status = await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    const module = deep(document, "atrium-status-module");
+    const rows = [...(module?.shadowRoot.querySelectorAll("button.row") ?? [])];
+    return {
+      garages: rows.filter((r) => r.dataset.garage).map((r) => ({ id: r.dataset.garage, open: r.classList.contains("open") })),
+      texts: rows.map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+    };
+  });
+  if (garage) {
+    const row = status.garages.find((g) => g.id === garage.entity_id);
+    check(
+      "garage door row shows its real state",
+      row && row.open === (garage.state === "on"),
+      `${garage.state} -> ${row?.open ? "red" : "green"}`,
+    );
+  }
+  const trvWindows = allStates.filter(
+    (s) => s.attributes.device_class === "window" && /heizung|thermostat|trv/i.test(s.attributes.friendly_name ?? ""),
+  );
+  check(
+    "thermostat window detection is not listed",
+    trvWindows.every((w) => !status.texts.some((txt) => txt.includes(w.attributes.friendly_name))),
+    `${trvWindows.length} thermostat window sensors`,
+  );
+
   // Live sync: switch on the desktop, measure until the app shows it.
   const target = before.state === "on" ? "off" : "on";
   const rendersBefore = (await readPanel(appPage))?.tiles;
@@ -284,6 +320,37 @@ async function main() {
     await deskPage.screenshot({ path: `${SHOTS}desktop-climate.png` });
     await deskPage.keyboard.press("Escape");
     await deskPage.waitForTimeout(400);
+  }
+
+  // Low batteries: the row opens the batteries page.
+  const batteryRow = await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    const row = deep(document, "[data-batteries]");
+    row?.click();
+    return Boolean(row);
+  });
+  if (batteryRow) {
+    await waitFor(async () => (await readPanel(deskPage))?.page === "atrium-category-page", { timeout: 5000 });
+    await deskPage.waitForTimeout(400);
+    const low = await deskPage.evaluate(() => {
+      const deep = (root, sel) => {
+        const hit = root.querySelector(sel);
+        if (hit) return hit;
+        for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+        return null;
+      };
+      const page = deep(document, "atrium-category-page");
+      return page?.shadowRoot.querySelectorAll(".battery.low").length ?? 0;
+    });
+    check("battery row opens the list of weak batteries", low > 0, `${low} weak`);
+    await deskPage.screenshot({ path: `${SHOTS}desktop-batteries.png` });
+    await clickNav(deskPage, "home");
+    await deskPage.waitForTimeout(300);
   }
 
   // Non-admins: favourites yes, hiding and layout no.

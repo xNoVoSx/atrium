@@ -80,29 +80,69 @@ export function stepTarget(stateObj: HassEntity, current: number, direction: 1 |
 // ---- status ----
 
 const OPENING_CLASSES = ["door", "garage_door", "opening", "window"];
-const COVER_CLASSES = ["garage", "gate", "door"];
+const GARAGE_SENSOR_CLASSES = ["garage_door"];
+const GARAGE_COVER_CLASSES = ["garage", "gate"];
 
 export interface OpenItem {
   entityId: string;
   since: string;
 }
 
-/** Doors, gates and windows that are open right now. */
+export interface GarageDoor {
+  entityId: string;
+  open: boolean;
+  since: string;
+}
+
+/** Devices that have a thermostat: their window sensors are the valves' open-window detection. */
+function thermostatDevices(hass: HomeAssistant): Set<string> {
+  const devices = new Set<string>();
+  for (const id of Object.keys(hass.states)) {
+    const device = id.startsWith("climate.") ? hass.entities[id]?.device_id : undefined;
+    if (device) devices.add(device);
+  }
+  return devices;
+}
+
+const isGarage = (hass: HomeAssistant, id: string) => {
+  const s = hass.states[id];
+  const cls = String(s?.attributes.device_class ?? "");
+  return id.startsWith("cover.") ? GARAGE_COVER_CLASSES.includes(cls) : GARAGE_SENSOR_CLASSES.includes(cls);
+};
+
+/** Garage doors and gates, open or closed; shown permanently at the top. */
+export function garageDoors(hass: HomeAssistant): GarageDoor[] {
+  return [...visibleOfDomain(hass, "binary_sensor"), ...visibleOfDomain(hass, "cover")]
+    .filter((id) => isGarage(hass, id) && hass.states[id]?.state !== "unavailable")
+    .sort()
+    .flatMap((id) => {
+      const s = hass.states[id];
+      if (!s) return [];
+      const open = id.startsWith("cover.")
+        ? ["open", "opening", "closing"].includes(s.state)
+        : s.state === "on";
+      return [{ entityId: id, open, since: s.last_changed }];
+    });
+}
+
+/**
+ * Doors and windows that are open right now. Garage doors have their own row;
+ * window sensors of thermostats (open-window detection) are not real windows.
+ */
 export function openItems(hass: HomeAssistant): OpenItem[] {
+  const thermostats = thermostatDevices(hass);
   const items: OpenItem[] = [];
   for (const id of visibleOfDomain(hass, "binary_sensor")) {
     const s = hass.states[id];
-    if (s?.state === "on" && OPENING_CLASSES.includes(String(s.attributes.device_class))) {
-      items.push({ entityId: id, since: s.last_changed });
-    }
+    if (!s || s.state !== "on" || isGarage(hass, id)) continue;
+    if (!OPENING_CLASSES.includes(String(s.attributes.device_class))) continue;
+    const device = hass.entities[id]?.device_id;
+    if (device && thermostats.has(device)) continue;
+    items.push({ entityId: id, since: s.last_changed });
   }
   for (const id of visibleOfDomain(hass, "cover")) {
     const s = hass.states[id];
-    if (
-      s &&
-      ["open", "opening"].includes(s.state) &&
-      COVER_CLASSES.includes(String(s.attributes.device_class))
-    ) {
+    if (s && ["open", "opening"].includes(s.state) && s.attributes.device_class === "door") {
       items.push({ entityId: id, since: s.last_changed });
     }
   }
@@ -122,6 +162,30 @@ export function lowBatteries(hass: HomeAssistant, threshold = LOW_BATTERY_PCT): 
     })
     .sort((a, b) => (numeric(a) ?? 0) - (numeric(b) ?? 0))
     .map((s) => s.entity_id);
+}
+
+export interface BatteryLevel {
+  entityId: string;
+  /** Percent, or null for on/off battery sensors. */
+  value: number | null;
+  low: boolean;
+}
+
+/** Every battery, lowest first; on/off "battery low" sensors count as 0 when low. */
+export function batteries(hass: HomeAssistant, threshold = LOW_BATTERY_PCT): BatteryLevel[] {
+  return Object.values(hass.states)
+    .filter(
+      (s) => s.attributes.device_class === "battery" && s.state !== "unavailable" && s.state !== "unknown",
+    )
+    .map((s) => {
+      if (s.entity_id.startsWith("binary_sensor.")) {
+        return { entityId: s.entity_id, value: null, low: s.state === "on" };
+      }
+      const value = numeric(s);
+      return { entityId: s.entity_id, value, low: value !== null && value < threshold };
+    })
+    .filter((b) => b.value !== null || b.entityId.startsWith("binary_sensor."))
+    .sort((a, b) => (a.value ?? (a.low ? -1 : 101)) - (b.value ?? (b.low ? -1 : 101)));
 }
 
 // ---- scenes ----

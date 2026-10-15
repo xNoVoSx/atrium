@@ -3,14 +3,16 @@ import { repeat } from "lit/directives/repeat.js";
 import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
-import { lowBatteries, openItems } from "../data/home";
-import { nameOf } from "../data/registry";
+import { garageDoors, lowBatteries, openItems } from "../data/home";
+import { setEntityHidden } from "../data/layout";
+import { areaIdOf, nameOf, withoutArea } from "../data/registry";
 import { ICONS, shared } from "../theme/shared";
 import { formatSince } from "../util/format";
 
 /**
- * Things that need attention, as slim rows: open doors/gates/windows and low
- * batteries. Nothing at all when everything is fine.
+ * Slim rows at the top: garage doors always (green closed, red open), open
+ * doors/windows and low batteries only when they need attention. In edit mode
+ * admins can hide a row's entity.
  */
 export class AtriumStatusModule extends LitElement {
   static override properties = { ctx: { attribute: false } };
@@ -21,6 +23,13 @@ export class AtriumStatusModule extends LitElement {
     this,
     () => this.ctx?.store,
     (hass) => ({
+      garages: garageDoors(hass).map((g) => {
+        const area = areaIdOf(hass, g.entityId);
+        return {
+          ...g,
+          name: withoutArea(nameOf(hass, g.entityId), area ? hass.areas[area]?.name : undefined),
+        };
+      }),
       open: openItems(hass).map((o) => ({ ...o, name: nameOf(hass, o.entityId) })),
       batteries: lowBatteries(hass).map((id) => ({
         id,
@@ -34,6 +43,21 @@ export class AtriumStatusModule extends LitElement {
     this.#status.attach();
   }
 
+  #hideButton(entityId: string) {
+    if (!this.ctx.editing || !this.ctx.isAdmin) return nothing;
+    return html`<button
+      class="hide"
+      type="button"
+      aria-label=${this.ctx.t("edit.hide")}
+      @click=${(ev: Event) => {
+        ev.stopPropagation();
+        this.ctx.saveLayout(setEntityHidden(this.ctx.layout, entityId, true));
+      }}
+    >
+      ${icon(ICONS.close, 16, 2.2)}
+    </button>`;
+  }
+
   #moreInfo(entityId: string): void {
     this.dispatchEvent(
       new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }),
@@ -42,29 +66,51 @@ export class AtriumStatusModule extends LitElement {
 
   protected override render() {
     const status = this.#status.value;
-    if (!status || (!status.open.length && !status.batteries.length)) return nothing;
+    if (!status || (!status.garages.length && !status.open.length && !status.batteries.length))
+      return nothing;
     const { t, locale } = this.ctx;
     const now = new Date();
     const count = status.batteries.length;
     const first = status.batteries[0];
     return html`
       ${repeat(
+        status.garages,
+        (g) => g.entityId,
+        (g) =>
+          html`<div class="line">
+            <button
+              class="row ${g.open ? "open" : "closed"}"
+              type="button"
+              data-garage=${g.entityId}
+              @click=${() => this.#moreInfo(g.entityId)}
+            >
+              ${icon(ICONS.garage, 20, 2)}
+              <span class="title">${g.name} ${g.open ? t("status.open") : t("status.closed")}</span>
+              ${g.open ? html`<span class="meta">${formatSince(g.since, now, locale)}</span>` : nothing}
+            </button>
+            ${this.#hideButton(g.entityId)}
+          </div>`,
+      )}
+      ${repeat(
         status.open,
         (o) => o.entityId,
         (o) =>
-          html`<button class="row open" type="button" @click=${() => this.#moreInfo(o.entityId)}>
-            ${icon(ICONS.door, 20, 2)}
-            <span class="title">${o.name} ${t("status.open")}</span>
-            <span class="meta">${formatSince(o.since, now, locale)}</span>
-          </button>`,
+          html`<div class="line">
+            <button class="row open" type="button" @click=${() => this.#moreInfo(o.entityId)}>
+              ${icon(ICONS.window, 20, 2)}
+              <span class="title">${o.name} ${t("status.open")}</span>
+              <span class="meta">${formatSince(o.since, now, locale)}</span>
+            </button>
+            ${this.#hideButton(o.entityId)}
+          </div>`,
       )}
       ${
         count && first
           ? html`<button
               class="row battery"
               type="button"
-              title=${status.batteries.map((b) => `${b.name} ${b.value} %`).join("\n")}
-              @click=${() => this.#moreInfo(first.id)}
+              data-batteries
+              @click=${() => this.ctx.navigate({ page: "category", category: "batteries" })}
             >
               ${icon(ICONS.battery, 20, 2)}
               <span class="title">${count} ${count === 1 ? t("status.battery") : t("status.batteries")}</span>
@@ -102,8 +148,31 @@ export class AtriumStatusModule extends LitElement {
       .row svg {
         flex: none;
       }
+      .line {
+        display: flex;
+        gap: 6px;
+      }
+      .line .row {
+        flex: 1;
+        min-width: 0;
+      }
+      .hide {
+        flex: none;
+        width: 44px;
+        border: 0;
+        border-radius: var(--a-radius);
+        background: var(--a-s3);
+        color: var(--a-text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
       .open {
         background: var(--a-terra);
+        color: #fff;
+      }
+      .closed {
+        background: var(--a-sage);
         color: #fff;
       }
       .battery {

@@ -3,9 +3,9 @@
 import { LitElement, css, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import type { PanelContext } from "../context";
-import { StructureController } from "../data/entity-store";
+import { SelectorController, StructureController } from "../data/entity-store";
 import { icon } from "../components/icon";
-import { climateZones, rooms } from "../data/home";
+import { batteries, climateZones, rooms } from "../data/home";
 import {
   hiddenAreas,
   hiddenEntities,
@@ -44,6 +44,7 @@ export class AtriumCategoriesPage extends LitElement {
     const entries: Array<[string, MessageKey, MessageKey]> = [
       ["light", "section.lights", "categories.lights"],
       ["climate", "section.heating", "categories.heating"],
+      ["batteries", "categories.batteries", "categories.batteries_sub"],
     ];
     return html`<h1>${t("nav.categories")}</h1>
       <div class="list">
@@ -97,15 +98,58 @@ export class AtriumCategoryPage extends LitElement {
   declare category: string;
 
   #structure = new StructureController(this, () => this.ctx?.store);
+  #batteries = new SelectorController(
+    this,
+    () => this.ctx?.store,
+    (hass) =>
+      this.category === "batteries"
+        ? batteries(hass).map((b) => ({ ...b, name: nameOf(hass, b.entityId) }))
+        : [],
+  );
 
   protected override willUpdate(): void {
     this.#structure.attach();
+    this.#batteries.attach();
+    this.#batteries.refresh();
+  }
+
+  #renderBatteries() {
+    const { t } = this.ctx;
+    const list = this.#batteries.value ?? [];
+    return html`<h1>${t("categories.batteries")}</h1>
+      <div class="batteries">
+        ${repeat(
+          list,
+          (b) => b.entityId,
+          (b) =>
+            html`<button
+              type="button"
+              class="battery ${b.low ? "low" : ""}"
+              data-battery=${b.entityId}
+              @click=${() =>
+                this.dispatchEvent(
+                  new CustomEvent("hass-more-info", {
+                    detail: { entityId: b.entityId },
+                    bubbles: true,
+                    composed: true,
+                  }),
+                )}
+            >
+              <span class="b-name">${b.name}</span>
+              <span class="b-bar"><span style="width: ${b.value ?? (b.low ? 5 : 100)}%"></span></span>
+              <span class="b-value"
+                >${b.value !== null ? `${Math.round(b.value)} %` : b.low ? "!" : "OK"}</span
+              >
+            </button>`,
+        )}
+      </div>`;
   }
 
   protected override render() {
     const hass = this.ctx.store.hass;
     if (!hass) return nothing;
     const { t } = this.ctx;
+    if (this.category === "batteries") return this.#renderBatteries();
     if (this.category === "climate") {
       const areas = [...new Set(climateZones(hass).map((id) => hass.entities[id]?.area_id ?? null))];
       return html`<h1>${t("section.heating")}</h1>
@@ -148,6 +192,55 @@ export class AtriumCategoryPage extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      .batteries {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 720px;
+      }
+      .battery {
+        border: 0;
+        text-align: left;
+        min-height: 52px;
+        padding: 0 14px;
+        border-radius: var(--a-radius);
+        background: var(--a-s1);
+        color: var(--a-text);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 80px 52px;
+        align-items: center;
+        gap: 12px;
+      }
+      .b-name {
+        font-size: 15px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .b-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: var(--a-s3);
+        overflow: hidden;
+      }
+      .b-bar span {
+        display: block;
+        height: 100%;
+        background: var(--a-sage);
+      }
+      .low .b-bar span {
+        background: var(--a-terra);
+      }
+      .b-value {
+        text-align: right;
+        font-size: 15px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .low .b-value {
+        color: var(--a-terra-text);
       }
     `,
   ];
