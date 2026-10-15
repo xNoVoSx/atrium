@@ -23,6 +23,7 @@ import { categoryList, roomSectionList, setCategory, setRoomSection } from "../d
 import { isLevel, levelAllows, levelChoiceAllowed, LEVELS } from "../data/levels";
 import { customPages } from "../data/pages";
 import { WIDGETS } from "../widgets/catalog";
+import { LIGHT_VARIANTS, userLightVariant } from "../modules/lights-module";
 import type { WidgetDef } from "../widgets/types";
 import { WI } from "../widgets/icons";
 import { ACCENTS, DENSITIES, type ThemePreference } from "../theme/tokens";
@@ -306,6 +307,7 @@ export class AtriumCategoryPage extends LitElement {
         }`;
     }
     const groups = groupByArea(hass, "light");
+    const style = userLightVariant(this.ctx.user) ?? "square";
     return html`<h1>${t("section.lights")}</h1>
       ${repeat(
         groups,
@@ -313,7 +315,7 @@ export class AtriumCategoryPage extends LitElement {
         (g) =>
           html`<section>
             <h2 class="label">${g.areaId ? (hass.areas[g.areaId]?.name ?? g.areaId) : t("area.none")}</h2>
-            <div class="grid">
+            <div class="grid lights-${style}">
               ${repeat(
                 g.entityIds,
                 (id) => id,
@@ -322,6 +324,10 @@ export class AtriumCategoryPage extends LitElement {
                     .entityId=${id}
                     .store=${this.ctx.store}
                     .t=${t}
+                    ?compact=${["compact", "list", "slider"].includes(style)}
+                    ?list=${style === "list"}
+                    ?round=${style === "buttons"}
+                    ?slider=${style === "slider"}
                   ></atrium-light-tile>`,
               )}
             </div>
@@ -387,6 +393,19 @@ export class AtriumCategoryPage extends LitElement {
       }
       .low .b-value {
         color: var(--a-terra-text);
+      }
+      .grid.lights-compact {
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      }
+      .grid.lights-list {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 6px;
+      }
+      .grid.lights-buttons {
+        grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      }
+      .grid.lights-slider {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       }
       .flow,
       .col {
@@ -692,6 +711,54 @@ export class AtriumSettingsPage extends LitElement {
           )}
         </div>
         <p class="hint">${t("settings.saver_hint")}</p>
+      </section>
+      <section>
+        <h2 class="label">${t("settings.light_style")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.light_style")}>
+          <button
+            type="button"
+            aria-pressed=${String(!user.lightStyle)}
+            @click=${() => {
+              const next = { ...user };
+              delete next.lightStyle;
+              saveUser(next);
+            }}
+          >
+            ${t("settings.auto")}
+          </button>
+          ${LIGHT_VARIANTS.map(
+            (v) =>
+              html`<button
+                type="button"
+                data-light-style=${v}
+                aria-pressed=${String(user.lightStyle === v)}
+                @click=${() => saveUser({ ...user, lightStyle: v })}
+              >
+                ${t(`v.${v}` as MessageKey)}
+              </button>`,
+          )}
+        </div>
+      </section>
+      <section>
+        <h2 class="label">${t("settings.climate_style")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.climate_style")}>
+          ${(["card", "tiles", "list", "chips", "dial", "minimal"] as const).map(
+            (v) =>
+              html`<button
+                type="button"
+                data-climate-style=${v}
+                aria-pressed=${String((user.climateStyle ?? "card") === v)}
+                @click=${() => {
+                  const next = { ...user };
+                  if (v === "card") delete next.climateStyle;
+                  else next.climateStyle = v;
+                  saveUser(next);
+                }}
+              >
+                ${t(`v.${v}` as MessageKey)}
+              </button>`,
+          )}
+        </div>
       </section>
       <section>
         <h2 class="label">${t("settings.frame_all")}</h2>

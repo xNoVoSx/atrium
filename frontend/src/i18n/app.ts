@@ -2,6 +2,8 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "settings.climate_style": "Heating everywhere",
+  "settings.light_style": "Light tiles everywhere",
   "settings.frame_all": "Frame of all widgets",
   "settings.frame_all_hint": "Your default look; a widget with its own frame keeps it.",
   "settings.fullscreen": "Full screen",
@@ -155,6 +157,8 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "settings.climate_style": "Heizung überall",
+  "settings.light_style": "Licht-Kacheln überall",
   "settings.frame_all": "Rahmen aller Widgets",
   "settings.frame_all_hint": "Dein Standard-Aussehen; ein Widget mit eigenem Rahmen behält ihn.",
   "settings.fullscreen": "Vollbild",

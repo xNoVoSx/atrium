@@ -100,7 +100,10 @@ export class AtriumClimateModule extends LitElement {
         ${zones.filter((z) => z.heating).length} / ${zones.length} ${t("climate.heating").toLowerCase()}
       </div>
     </div>`;
-    switch (this.variant) {
+    const style =
+      this.variant ??
+      (typeof this.ctx.user.climateStyle === "string" ? this.ctx.user.climateStyle : undefined);
+    switch (style) {
       case "tiles":
         return html`${head}
           <div class="v-tiles">${zoneEl("tile")}</div>`;

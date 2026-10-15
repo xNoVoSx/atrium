@@ -10,6 +10,11 @@ import { attachSortable } from "../util/sortable";
 
 type Mode = "favorites" | "lights";
 export type LightVariant = "compact" | "square" | "list" | "buttons" | "slider";
+export const LIGHT_VARIANTS: readonly LightVariant[] = ["compact", "square", "list", "buttons", "slider"];
+
+/** The user's own choice for light tiles everywhere (settings → appearance), if any. */
+export const userLightVariant = (user: Record<string, unknown> | undefined): LightVariant | undefined =>
+  LIGHT_VARIANTS.includes(user?.lightStyle as LightVariant) ? (user?.lightStyle as LightVariant) : undefined;
 
 /**
  * Light tiles. On the home page a user's favourites replace the list once
@@ -130,7 +135,7 @@ export class AtriumLightsModule extends LitElement {
   }
 
   #variant(): LightVariant {
-    return this.variant ?? (this.compact ? "compact" : "square");
+    return this.variant ?? userLightVariant(this.ctx?.user) ?? (this.compact ? "compact" : "square");
   }
 
   protected override render() {
