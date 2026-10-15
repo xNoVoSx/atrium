@@ -204,36 +204,83 @@ export class AtriumEnergyPage extends LitElement {
     return this._rec?.days.find((d) => d.date === date)?.kwh ?? null;
   }
 
+  /**
+   * Energy flow: PV strings -> inverter -> house -> consumers. When the
+   * measured consumers need more than the sun gives, the difference must come
+   * from the grid; without a grid meter that is shown as a minimum.
+   */
   #flow(live: LiveEnergy) {
+    const { t, narrow } = this.ctx;
+    const W = narrow ? 400 : 680;
     const strings = live.strings.slice(0, 4);
-    const h = Math.max(160, strings.length * 70);
-    const midY = h / 2;
-    // Dash speed follows power: more watts, faster dots.
-    const speed = (w: number | null) => (w && w > 1 ? Math.max(0.4, 3 - Math.log10(w)) : 0);
+    const active = live.consumers.filter((c) => (c.watts ?? 0) >= 1);
+    const max = narrow ? 4 : 6;
+    const shown = active.length > max ? active.slice(0, max - 1) : active;
+    const rest = active.slice(shown.length);
+    const items = [
+      ...shown.map((c) => ({ name: c.name, w: c.watts ?? 0 })),
+      ...(rest.length
+        ? [{ name: `+${rest.length} ${t("energy.more")}`, w: rest.reduce((s, c) => s + (c.watts ?? 0), 0) }]
+        : []),
+    ];
+    const consumersW = active.reduce((s, c) => s + (c.watts ?? 0), 0);
+    const ac = live.ac ?? 0;
+    const gridMin = consumersW - ac > 1 ? consumersW - ac : 0;
+
+    const rowH = 56;
+    const rows = Math.max(strings.length, items.length, 2);
+    const top = 10;
+    const bodyH = rows * rowH;
+    const H = top + bodyH + (gridMin ? 84 : 10);
+    const midY = top + bodyH / 2;
+    const rowY = (i: number, n: number) => top + (bodyH / n) * (i + 0.5);
+
+    const pv = { x: 0, w: narrow ? 72 : 96 };
+    const inv = { x: narrow ? 100 : 160, w: narrow ? 76 : 104 };
+    const house = { x: narrow ? 238 : 360, r: 30 };
+    const cons = { x: narrow ? 300 : 470, w: W - (narrow ? 300 : 470) };
+    const nameLen = narrow ? 11 : 22;
+    const clip = (s: string) => (s.length > nameLen ? `${s.slice(0, nameLen - 1)}…` : s);
+    // Dots move faster with more power.
+    const speed = (w: number | null) => (w && w > 1 ? Math.max(0.35, 3 - Math.log10(w)) : 0);
     const line = (d: string, w: number | null, cls: string) =>
       svg`<path d=${d} class="flow ${cls} ${w && w > 1 ? "on" : ""}" style="animation-duration: ${speed(w)}s" />`;
-    return html`<svg
-      viewBox="0 0 440 ${h}"
-      class="flowchart"
-      role="img"
-      aria-label="${this.ctx.t("energy.flow")}"
-    >
+
+    return html`<svg viewBox="0 0 ${W} ${H}" class="flowchart" role="img" aria-label=${t("energy.flow")}>
       ${strings.map((s, i) => {
-        const y = strings.length === 1 ? midY : 20 + (i * (h - 40)) / (strings.length - 1);
-        return svg`${line(`M88 ${y} C150 ${y} 150 ${midY} 196 ${midY}`, s.watts, "pv")}
-          <rect x="0" y=${y - 26} width="88" height="52" rx="8" class="node" />
-          <text x="44" y=${y - 2} class="v">${this.#fmt(s.watts, 0, "W")}</text>
-          <text x="44" y=${y + 16} class="n">${`PV${i + 1}`}</text>`;
+        const y = rowY(i, strings.length);
+        return svg`${line(`M${pv.x + pv.w} ${y} C${pv.x + pv.w + 30} ${y} ${inv.x - 30} ${midY} ${inv.x} ${midY}`, s.watts, "pv")}
+          <rect x=${pv.x} y=${y - 22} width=${pv.w} height="44" rx="8" class="node" />
+          <text x=${pv.x + pv.w / 2} y=${y - 1} class="v">${this.#fmt(s.watts, 0, "W")}</text>
+          <text x=${pv.x + pv.w / 2} y=${y + 15} class="n">PV${i + 1}</text>`;
       })}
-      ${line(`M292 ${midY} L340 ${midY}`, live.ac, "ac")}
-      <rect x="196" y=${midY - 34} width="96" height="68" rx="8" class="node inv" />
-      <text x="244" y=${midY - 6} class="v small">${this.ctx.t("energy.inverter_short")}</text>
-      <text x="244" y=${midY + 14} class="n">
-        ${live.efficiency !== null ? this.#fmt(live.efficiency * 100, 0, "%") : "—"}
+      ${line(`M${inv.x + inv.w} ${midY} L${house.x - house.r} ${midY}`, live.ac, "ac")}
+      ${items.map((c, i) => {
+        const y = rowY(i, items.length);
+        return svg`${line(`M${house.x + house.r} ${midY} C${house.x + house.r + 30} ${midY} ${cons.x - 30} ${y} ${cons.x} ${y}`, c.w, "load")}
+          <rect x=${cons.x} y=${y - 22} width=${cons.w} height="44" rx="8" class="node" />
+          <text x=${cons.x + 10} y=${y - 2} class="v left">${this.#fmt(c.w, 0, "W")}</text>
+          <text x=${cons.x + 10} y=${y + 14} class="n left">${clip(c.name)}</text>`;
+      })}
+      ${
+        gridMin
+          ? svg`${line(`M${house.x} ${H - 52} L${house.x} ${midY + house.r}`, gridMin, "grid")}
+          <rect x=${house.x - 60} y=${H - 52} width="120" height="44" rx="8" class="node grid" />
+          <text x=${house.x} y=${H - 32} class="v light">≥ ${this.#fmt(gridMin, 0, "W")}</text>
+          <text x=${house.x} y=${H - 16} class="n light">${t("energy.grid")}</text>`
+          : nothing
+      }
+      <rect x=${inv.x} y=${midY - 30} width=${inv.w} height="60" rx="8" class="node" />
+      <text x=${inv.x + inv.w / 2} y=${midY - 4} class="v">${this.#fmt(live.ac, 0, "W")}</text>
+      <text x=${inv.x + inv.w / 2} y=${midY + 14} class="n">
+        ${t("energy.inverter_short")}
+        ${live.efficiency !== null ? this.#fmt(live.efficiency * 100, 0, "%") : ""}
       </text>
-      <rect x="340" y=${midY - 34} width="100" height="68" rx="8" class="node out" />
-      <text x="390" y=${midY - 2} class="v light">${this.#fmt(live.ac, 0, "W")}</text>
-      <text x="390" y=${midY + 18} class="n light">${this.ctx.t("energy.grid_house")}</text>
+      <circle cx=${house.x} cy=${midY} r=${house.r} class="house" />
+      <path
+        d="M${house.x - 11} ${midY + 9} V${midY - 2} L${house.x} ${midY - 11} L${house.x + 11} ${midY - 2} V${midY + 9} Z"
+        class="house-icon"
+      />
     </svg>`;
   }
 
@@ -293,7 +340,7 @@ export class AtriumEnergyPage extends LitElement {
     const active = data?.points.filter((p) => p.w > 5) ?? [];
     const time = (ms: number) =>
       new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(ms);
-    return html`<section class="card" data-day=${this._day}>
+    return html`<section class="card day-card" data-day=${this._day}>
       <div class="row-head">
         <span class="label">${title}</span>
         ${
@@ -320,7 +367,7 @@ export class AtriumEnergyPage extends LitElement {
     </section>`;
   }
 
-  #renderCalendar() {
+  #renderCalendar(totals: unknown) {
     const { t, locale } = this.ctx;
     const month = this._month;
     const now = new Date();
@@ -357,7 +404,7 @@ export class AtriumEnergyPage extends LitElement {
         </button>`,
       );
     }
-    return html`<section class="card">
+    return html`<section class="card cal-card">
       <div class="row-head">
         <div class="month-nav">
           <button
@@ -390,6 +437,7 @@ export class AtriumEnergyPage extends LitElement {
           : html`<div class="loading"></div>`
       }
       <div class="hint">${t("energy.pick_day")}</div>
+      ${totals}
     </section>`;
   }
 
@@ -409,7 +457,8 @@ export class AtriumEnergyPage extends LitElement {
     });
     const totalOf = (key: "today" | "month" | "year") =>
       rows.some((r) => r[key] !== null) ? rows.reduce((s, r) => s + (r[key] ?? 0), 0) : null;
-    return html`<section class="card wide">
+    const maxW = Math.max(1, ...rows.map((r) => r.watts ?? 0));
+    return html`<section class="card cons-card">
       <div class="label">${t("energy.consumers")}</div>
       <div class="table-wrap">
         <table class="ctable">
@@ -428,7 +477,12 @@ export class AtriumEnergyPage extends LitElement {
               (r) => r.id,
               (r) =>
                 html`<tr>
-                  <th scope="row">${r.name}</th>
+                  <th scope="row">
+                    ${r.name}
+                    <span class="live ${(r.watts ?? 0) >= 1 ? "on" : ""}"
+                      ><span style="width: ${Math.max(2, ((r.watts ?? 0) / maxW) * 100)}%"></span
+                    ></span>
+                  </th>
                   <td>${this.#fmt(r.watts, 0, "W")}</td>
                   <td>${this.#fmt(r.today, 2)}</td>
                   <td>${this.#fmt(r.month, 1)}</td>
@@ -474,7 +528,7 @@ export class AtriumEnergyPage extends LitElement {
     const year = this._rec ? sumFrom(days, `${now.getFullYear()}-01-01`) : null;
     const amort = amortisation(Number.isNaN(live.total ?? NaN) ? null : live.total, cfg);
     return html`<h1>${t("energy.title")}</h1>
-      <div class="layout">
+      <div class="layout ${amort ? "" : "no-amort"}">
         <section class="hero">
           <div class="label on-sage">${t("energy.solar_now")}</div>
           <div class="big">${this.#fmt(live.ac, 0)}<small> W</small></div>
@@ -489,7 +543,7 @@ export class AtriumEnergyPage extends LitElement {
           }
         </section>
 
-        <section class="card flowcard">
+        <section class="card flow-card">
           <div class="label">${t("energy.flow")}</div>
           ${this.#flow(live)}
         </section>
@@ -529,18 +583,18 @@ export class AtriumEnergyPage extends LitElement {
           }
         </section>
 
-        ${this.#renderDay(cfg)} ${this.#renderCalendar()}
-
-        <section class="totals wide">
-          <div><b>${this.#fmt(week, 1, "kWh")}</b><span>${t("energy.week")}</span></div>
-          <div><b>${this.#fmt(month, 1, "kWh")}</b><span>${t("energy.month")}</span></div>
-          <div><b>${this.#fmt(year, 0, "kWh")}</b><span>${t("energy.year")}</span></div>
-        </section>
-
+        ${this.#renderDay(cfg)}
+        ${this.#renderCalendar(
+          html`<div class="totals">
+            <div><b>${this.#fmt(week, 1, "kWh")}</b><span>${t("energy.week")}</span></div>
+            <div><b>${this.#fmt(month, 1, "kWh")}</b><span>${t("energy.month")}</span></div>
+            <div><b>${this.#fmt(year, 0, "kWh")}</b><span>${t("energy.year")}</span></div>
+          </div>`,
+        )}
         ${live.consumers.length ? this.#renderConsumers(live) : nothing}
         ${
           amort
-            ? html`<section class="card">
+            ? html`<section class="card amort-card">
                 <div class="label">${t("energy.amortisation")}</div>
                 <div class="amort">
                   <b>${this.#money(amort.earned)}</b><span>${t("energy.of")} ${this.#money(amort.cost)}</span>
@@ -577,17 +631,38 @@ export class AtriumEnergyPage extends LitElement {
         font-weight: 600;
         letter-spacing: -0.03em;
       }
+      /* Fixed places instead of auto-flow, so cards in a row line up. */
       .layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 12px;
-        align-items: start;
       }
       @media (min-width: 900px) {
         .layout {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(12, minmax(0, 1fr));
         }
-        .wide {
+        .hero {
+          grid-column: span 4;
+        }
+        .flow-card {
+          grid-column: span 8;
+        }
+        .kpis {
+          grid-column: 1 / -1;
+        }
+        .day-card {
+          grid-column: span 7;
+        }
+        .cal-card {
+          grid-column: span 5;
+        }
+        .cons-card {
+          grid-column: span 8;
+        }
+        .amort-card {
+          grid-column: span 4;
+        }
+        .no-amort .cons-card {
           grid-column: 1 / -1;
         }
       }
@@ -645,8 +720,77 @@ export class AtriumEnergyPage extends LitElement {
       }
       .kpis {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
         gap: 8px;
+      }
+      .hero {
+        justify-content: space-between;
+      }
+      .flow-card {
+        justify-content: center;
+      }
+      .cal-card .totals {
+        margin-top: auto;
+      }
+      .cal-card .totals b {
+        font-size: 17px;
+        white-space: normal;
+      }
+      .flowchart .left {
+        text-anchor: start;
+      }
+      .node.grid {
+        fill: var(--a-terra);
+      }
+      .flow.load.on {
+        stroke: var(--a-slate);
+      }
+      .flow.grid.on {
+        stroke: var(--a-terra);
+      }
+      .house {
+        fill: var(--a-ocher);
+      }
+      .house-icon {
+        fill: none;
+        stroke: var(--a-on-ocher);
+        stroke-width: 2;
+        stroke-linejoin: round;
+      }
+      .live {
+        display: block;
+        height: 5px;
+        margin-top: 4px;
+        border-radius: 3px;
+        background: var(--a-s3);
+        overflow: hidden;
+        max-width: 220px;
+      }
+      .live span {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+        background: var(--a-s3);
+        transition: width 600ms ease;
+      }
+      .live.on span {
+        background: repeating-linear-gradient(
+          90deg,
+          var(--a-slate) 0 10px,
+          color-mix(in srgb, var(--a-slate) 60%, #fff) 10px 20px
+        );
+        background-size: 40px 100%;
+        animation: stripes 1.2s linear infinite;
+      }
+      @keyframes stripes {
+        to {
+          background-position: 40px 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .live.on span {
+          animation: none;
+        }
       }
       .kpis div,
       .totals div {
@@ -683,7 +827,6 @@ export class AtriumEnergyPage extends LitElement {
       .flowchart {
         width: 100%;
         height: auto;
-        max-height: 240px;
       }
       .node {
         fill: var(--a-s3);

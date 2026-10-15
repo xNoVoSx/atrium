@@ -456,6 +456,16 @@ async function main() {
   );
   await deskPage.waitForTimeout(500);
   await deskPage.screenshot({ path: `${SHOTS}desktop-energy.png`, fullPage: true });
+  await appPage.evaluate(() => {
+    history.pushState(null, "", "/atrium/category/energy");
+    window.dispatchEvent(new CustomEvent("location-changed"));
+  });
+  await appPage.waitForTimeout(2500);
+  await appPage.screenshot({ path: `${SHOTS}app-energy.png`, fullPage: true });
+  await appPage.evaluate(() => {
+    history.pushState(null, "", "/atrium");
+    window.dispatchEvent(new CustomEvent("location-changed"));
+  });
   await clickNav(deskPage, "home");
   await deskPage.waitForTimeout(300);
 
