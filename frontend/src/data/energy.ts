@@ -255,15 +255,17 @@ export interface PowerPoint {
   w: number;
 }
 
-/** Power history of one sensor since a time (for the day curve). */
+/** Power history of one sensor in a time range (for the day curve). */
 export async function fetchPowerHistory(
   hass: HomeAssistant,
   entityId: string,
   from: Date,
+  to?: Date,
 ): Promise<PowerPoint[]> {
   const result = await hass.callWS<Record<string, Array<{ s: string; lu: number }>>>({
     type: "history/history_during_period",
     start_time: from.toISOString(),
+    ...(to ? { end_time: to.toISOString() } : {}),
     entity_ids: [entityId],
     minimal_response: true,
     no_attributes: true,
@@ -273,6 +275,34 @@ export async function fetchPowerHistory(
     .map((p) => ({ t: p.lu * 1000, w: Number(p.s) * (kw ? 1000 : 1) }))
     .filter((p) => !Number.isNaN(p.w));
 }
+
+/**
+ * Hourly mean power from long-term statistics. Detailed history is only kept
+ * for a few days (recorder purge_keep_days); hourly means stay.
+ */
+export async function fetchHourlyMean(
+  hass: HomeAssistant,
+  entityId: string,
+  from: Date,
+  to: Date,
+): Promise<PowerPoint[]> {
+  const result = await hass.callWS<Record<string, Array<{ start: number; mean?: number | null }>>>({
+    type: "recorder/statistics_during_period",
+    start_time: from.toISOString(),
+    end_time: to.toISOString(),
+    statistic_ids: [entityId],
+    period: "hour",
+    types: ["mean"],
+  });
+  const kw = unitOf(hass.states[entityId] ?? ({ attributes: {} } as HassEntity)) === "kW";
+  return (result[entityId] ?? [])
+    .filter((r) => r.mean !== null && r.mean !== undefined)
+    .map((r) => ({ t: r.start, w: (r.mean ?? 0) * (kw ? 1000 : 1) }));
+}
+
+/** Sum of daily values from a date on (YYYY-MM-DD, inclusive). */
+export const sumFrom = (days: DailyValue[], from: string) =>
+  days.filter((d) => d.date >= from).reduce((s, d) => s + d.kwh, 0);
 
 /** Change some energy settings; undefined removes a key (back to automatic). */
 export function setEnergy(

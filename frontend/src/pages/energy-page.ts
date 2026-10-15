@@ -5,9 +5,11 @@ import {
   amortisation,
   energyConfig,
   fetchDaily,
+  fetchHourlyMean,
   fetchPowerHistory,
   forecastKwh,
   liveEnergy,
+  sumFrom,
   type DailyValue,
   type EnergyConfig,
   type LiveEnergy,
@@ -20,30 +22,51 @@ import { shared } from "../theme/shared";
 const REFRESH_MS = 5 * 60 * 1000;
 const DAY_FROM_H = 5;
 const DAY_TO_H = 21;
+const DAY_MS = 86400000;
 
 interface Recorded {
-  today: number | null;
-  month: DailyValue[];
-  week: number | null;
-  monthTotal: number | null;
-  year: number | null;
-  history: PowerPoint[];
-  consumersToday: Record<string, number>;
+  /** Daily production since the earliest month loaded. */
+  days: DailyValue[];
+  /** Daily consumption per consumer (keyed by its power sensor), this year. */
+  consumerDays: Record<string, DailyValue[]>;
+  /** First date loaded. */
+  from: string;
 }
 
+interface DayData {
+  date: string;
+  points: PowerPoint[];
+  /** "history" = detailed; "hourly" = hourly means (older days); "none" = nothing kept. */
+  source: "history" | "hourly" | "none";
+}
+
+const parseDate = (date: string) => {
+  const [y = 1970, m = 1, d = 1] = date.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 /**
- * Solar and consumption: live flow, today's numbers and curve, the month as a
- * calendar, consumers and amortisation. Live values come from `hass`, daily
- * values from Home Assistant's statistics (refreshed every few minutes).
+ * Solar and consumption: live flow, a day (today or any day picked in the
+ * calendar) as numbers and curve, the month as a calendar with daily kWh,
+ * consumers with today/month/year, and amortisation. Live values come from
+ * `hass`, the rest from Home Assistant's history and statistics.
  */
 export class AtriumEnergyPage extends LitElement {
   static override properties = {
     ctx: { attribute: false },
     _rec: { state: true },
+    _month: { state: true },
+    _day: { state: true },
+    _dayData: { state: true },
   };
 
   declare ctx: PanelContext;
   declare _rec: Recorded | null;
+  /** First day of the month shown in the calendar. */
+  declare _month: Date;
+  /** Day shown in the curve, YYYY-MM-DD. */
+  declare _day: string;
+  declare _dayData: DayData | null;
 
   #timer: ReturnType<typeof setInterval> | undefined;
   #loadedFor = "";
@@ -72,12 +95,16 @@ export class AtriumEnergyPage extends LitElement {
 
   constructor() {
     super();
+    const now = new Date();
     this._rec = null;
+    this._month = new Date(now.getFullYear(), now.getMonth(), 1);
+    this._day = localDate(now);
+    this._dayData = null;
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
-    this.#timer = setInterval(() => void this.#load(true), REFRESH_MS);
+    this.#timer = setInterval(() => void this.#load(), REFRESH_MS);
   }
 
   override disconnectedCallback(): void {
@@ -93,59 +120,70 @@ export class AtriumEnergyPage extends LitElement {
     const key = JSON.stringify(this.#cfg.value ?? {});
     if (key !== this.#loadedFor) {
       this.#loadedFor = key;
-      void this.#load(false);
+      this._rec = null;
+      void this.#load();
     }
   }
 
-  async #load(quiet: boolean): Promise<void> {
+  async #load(): Promise<void> {
     const hass = this.ctx?.store.hass;
     const cfg = this.#cfg.value;
     if (!hass || !cfg) return;
-    if (!quiet) this._rec = null;
     const now = new Date();
-    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
-    const weekStart = new Date(midnight.getTime() - 6 * 86400000);
-    const sum = (list: DailyValue[], from: Date) =>
-      list.filter((d) => d.date >= localDate(from)).reduce((s, d) => s + d.kwh, 0);
+    const from = this._month < yearStart ? this._month : yearStart;
     try {
-      const [year, history, consumers] = await Promise.all([
-        cfg.energyTotal
-          ? fetchDaily(hass, cfg.energyTotal, yearStart < weekStart ? yearStart : weekStart)
-          : [],
-        cfg.acPower ? fetchPowerHistory(hass, cfg.acPower, midnight) : Promise.resolve([]),
+      const [days, consumers] = await Promise.all([
+        cfg.energyTotal ? fetchDaily(hass, cfg.energyTotal, from) : Promise.resolve([]),
         Promise.all(
           (cfg.consumers ?? [])
             .filter((c) => c.energy)
-            .map(async (c) => {
-              const days = await fetchDaily(hass, c.energy as string, midnight);
-              return [c.power, days.reduce((s, d) => s + d.kwh, 0)] as const;
-            }),
+            .map(async (c) => [c.power, await fetchDaily(hass, c.energy as string, yearStart)] as const),
         ),
       ]);
-      const today = localDate(now);
-      this._rec = {
-        today: cfg.energyTotal ? (year.find((d) => d.date === today)?.kwh ?? 0) : null,
-        month: year.filter((d) => d.date >= localDate(monthStart)),
-        week: cfg.energyTotal ? sum(year, weekStart) : null,
-        monthTotal: cfg.energyTotal ? sum(year, monthStart) : null,
-        year: cfg.energyTotal ? sum(year, yearStart) : null,
-        history,
-        consumersToday: Object.fromEntries(consumers),
-      };
+      this._rec = { days, consumerDays: Object.fromEntries(consumers), from: localDate(from) };
     } catch {
       // Recorder not available: live values still work.
-      this._rec = {
-        today: null,
-        month: [],
-        week: null,
-        monthTotal: null,
-        year: null,
-        history: [],
-        consumersToday: {},
-      };
+      this._rec = { days: [], consumerDays: {}, from: localDate(from) };
     }
+    void this.#loadDay(this._day);
+  }
+
+  async #loadDay(date: string): Promise<void> {
+    const hass = this.ctx?.store.hass;
+    const cfg = this.#cfg.value;
+    if (!hass || !cfg?.acPower) {
+      this._dayData = { date, points: [], source: "none" };
+      return;
+    }
+    const start = parseDate(date);
+    const end = new Date(start.getTime() + DAY_MS);
+    try {
+      let points = await fetchPowerHistory(hass, cfg.acPower, start, end);
+      let source: DayData["source"] = "history";
+      if (points.length < 3 && date !== localDate(new Date())) {
+        points = await fetchHourlyMean(hass, cfg.acPower, start, end);
+        source = points.length ? "hourly" : "none";
+      }
+      if (this._day === date) this._dayData = { date, points, source };
+    } catch {
+      if (this._day === date) this._dayData = { date, points: [], source: "none" };
+    }
+  }
+
+  #pickDay(date: string): void {
+    if (date > localDate(new Date())) return;
+    this._day = date;
+    this._dayData = null;
+    void this.#loadDay(date);
+  }
+
+  #shiftMonth(delta: -1 | 1): void {
+    const next = new Date(this._month.getFullYear(), this._month.getMonth() + delta, 1);
+    const now = new Date();
+    if (next > new Date(now.getFullYear(), now.getMonth(), 1)) return;
+    this._month = next;
+    if (this._rec && localDate(next) < this._rec.from) void this.#load();
   }
 
   #fmt(n: number | null, digits = 1, unit = ""): string {
@@ -160,6 +198,10 @@ export class AtriumEnergyPage extends LitElement {
   #money(n: number | null): string {
     if (n === null) return "—";
     return new Intl.NumberFormat(this.ctx.locale, { style: "currency", currency: "EUR" }).format(n);
+  }
+
+  #dayKwh(date: string): number | null {
+    return this._rec?.days.find((d) => d.date === date)?.kwh ?? null;
   }
 
   #flow(live: LiveEnergy) {
@@ -195,16 +237,19 @@ export class AtriumEnergyPage extends LitElement {
     </svg>`;
   }
 
-  #dayCurve(history: PowerPoint[], cfg: EnergyConfig) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DAY_FROM_H).getTime();
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DAY_TO_H).getTime();
-    const points = history.filter((p) => p.t >= start && p.t <= Math.min(end, now.getTime()));
+  #dayCurve(data: DayData, cfg: EnergyConfig) {
+    const day = parseDate(data.date);
+    const isToday = data.date === localDate(new Date());
+    const now = Date.now();
+    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), DAY_FROM_H).getTime();
+    const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), DAY_TO_H).getTime();
+    const limit = isToday ? Math.min(end, now) : end;
+    const points = data.points.filter((p) => p.t <= limit);
     const top = Math.max(cfg.peakKw ? cfg.peakKw * 1000 : 0, ...points.map((p) => p.w), 100);
     // Drawn at roughly its displayed size, so labels keep their font size.
     const W = 420;
     const H = 150;
-    const x = (t: number) => ((t - start) / (end - start)) * W;
+    const x = (t: number) => Math.max(0, Math.min(W, ((t - start) / (end - start)) * W));
     const y = (w: number) => H - (w / top) * (H - 10);
     let d = "";
     let prevW = 0;
@@ -215,54 +260,201 @@ export class AtriumEnergyPage extends LitElement {
         : `M${x(p.t).toFixed(1)} ${y(p.w).toFixed(1)}`;
       prevW = p.w;
     }
-    const nowX = x(Math.min(now.getTime(), end));
-    if (d) d += ` L${nowX.toFixed(1)} ${y(prevW).toFixed(1)}`;
-    const area = d ? `${d} L${nowX.toFixed(1)} ${H} L${x(points[0]?.t ?? start).toFixed(1)} ${H} Z` : "";
-    const peak = points.reduce((m, p) => Math.max(m, p.w), 0);
+    const lastX = x(limit);
+    if (d) d += ` L${lastX.toFixed(1)} ${y(prevW).toFixed(1)}`;
+    const area = d ? `${d} L${lastX.toFixed(1)} ${H} L${x(points[0]?.t ?? start).toFixed(1)} ${H} Z` : "";
     const hours = [6, 9, 12, 15, 18];
     return html`<svg
-        viewBox="0 0 ${W} ${H + 22}"
-        class="curve"
-        role="img"
-        aria-label=${this.ctx.t("energy.today_curve")}
-      >
-        ${[0.25, 0.5, 0.75].map((f) => svg`<line x1="0" x2=${W} y1=${H - f * (H - 10)} y2=${H - f * (H - 10)} class="grid" />`)}
-        ${area ? svg`<path d=${area} class="area" />` : nothing}
-        ${d ? svg`<path d=${d} class="line" />` : nothing}
-        ${now.getTime() < end && now.getTime() > start ? svg`<line x1=${nowX} x2=${nowX} y1="0" y2=${H} class="now" />` : nothing}
-        ${hours.map((h) => svg`<text x=${x(new Date(now.getFullYear(), now.getMonth(), now.getDate(), h).getTime())} y=${H + 16} class="tick">${h}:00</text>`)}
-        <text x=${W} y="12" class="tick end">${this.#fmt(top, 0, "W")}</text>
-      </svg>
-      <div class="curve-foot">${this.ctx.t("energy.peak")} ${this.#fmt(peak, 0, "W")}</div>`;
+      viewBox="0 0 ${W} ${H + 22}"
+      class="curve"
+      role="img"
+      aria-label=${this.ctx.t("energy.day_curve")}
+    >
+      ${[0.25, 0.5, 0.75].map((f) => svg`<line x1="0" x2=${W} y1=${H - f * (H - 10)} y2=${H - f * (H - 10)} class="grid" />`)}
+      ${area ? svg`<path d=${area} class="area" />` : nothing}
+      ${d ? svg`<path d=${d} class="line" />` : nothing}
+      ${isToday && now < end && now > start ? svg`<line x1=${lastX} x2=${lastX} y1="0" y2=${H} class="now" />` : nothing}
+      ${hours.map((h) => svg`<text x=${x(new Date(day.getFullYear(), day.getMonth(), day.getDate(), h).getTime())} y=${H + 16} class="tick">${h}:00</text>`)}
+      <text x=${W} y="12" class="tick end">${this.#fmt(top, 0, "W")}</text>
+    </svg>`;
   }
 
-  #calendar(month: DailyValue[]) {
+  #renderDay(cfg: EnergyConfig) {
+    const { t, locale } = this.ctx;
+    const data = this._dayData;
+    const isToday = this._day === localDate(new Date());
+    const title = isToday
+      ? t("energy.today_curve")
+      : new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(
+          parseDate(this._day),
+        );
+    const kwh = this.#dayKwh(this._day);
+    const peak = data?.points.reduce((m, p) => Math.max(m, p.w), 0) ?? null;
+    const active = data?.points.filter((p) => p.w > 5) ?? [];
+    const time = (ms: number) =>
+      new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(ms);
+    return html`<section class="card" data-day=${this._day}>
+      <div class="row-head">
+        <span class="label">${title}</span>
+        ${
+          isToday
+            ? nothing
+            : html`<button type="button" class="link" @click=${() => this.#pickDay(localDate(new Date()))}>
+                ${t("energy.back_today")}
+              </button>`
+        }
+      </div>
+      <div class="day-facts">
+        <div><b>${this.#fmt(kwh, 2, "kWh")}</b><span>${t("energy.produced")}</span></div>
+        <div><b>${this.#fmt(peak, 0, "W")}</b><span>${t("energy.peak")}</span></div>
+        <div>
+          <b
+            >${active.length ? `${time(active[0]?.t ?? 0)}–${time(active[active.length - 1]?.t ?? 0)}` : "—"}</b
+          >
+          <span>${t("energy.producing")}</span>
+        </div>
+      </div>
+      ${data ? this.#dayCurve(data, cfg) : html`<div class="loading"></div>`}
+      ${data?.source === "hourly" ? html`<div class="hint">${t("energy.hourly_note")}</div>` : nothing}
+      ${data?.source === "none" ? html`<div class="hint">${t("energy.no_history")}</div>` : nothing}
+    </section>`;
+  }
+
+  #renderCalendar() {
+    const { t, locale } = this.ctx;
+    const month = this._month;
     const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const offset = (first.getDay() + 6) % 7; // Monday first
-    const byDate = new Map(month.map((d) => [d.date, d.kwh]));
-    const max = Math.max(0.1, ...month.map((d) => d.kwh));
     const today = localDate(now);
+    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const offset = (month.getDay() + 6) % 7; // Monday first
+    const monthDays = (this._rec?.days ?? []).filter((d) => d.date.startsWith(localDate(month).slice(0, 7)));
+    const byDate = new Map(monthDays.map((d) => [d.date, d.kwh]));
+    const max = Math.max(0.1, ...monthDays.map((d) => d.kwh));
+    const total = monthDays.reduce((s, d) => s + d.kwh, 0);
+    const isCurrent = month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth();
     const weekdays = Array.from({ length: 7 }, (_, i) =>
-      new Intl.DateTimeFormat(this.ctx.locale, { weekday: "narrow" }).format(new Date(2024, 0, 1 + i)),
+      new Intl.DateTimeFormat(locale, { weekday: "narrow" }).format(new Date(2024, 0, 1 + i)),
     );
     const cells = [];
     for (let i = 0; i < offset; i++) cells.push(html`<span></span>`);
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = localDate(new Date(now.getFullYear(), now.getMonth(), day));
+      const date = localDate(new Date(month.getFullYear(), month.getMonth(), day));
       const kwh = byDate.get(date);
+      const future = date > today;
       const level = kwh === undefined ? -1 : Math.min(4, Math.ceil((kwh / max) * 4));
       cells.push(
-        html`<span
-          class="day l${level} ${date === today ? "today" : ""}"
-          title=${kwh !== undefined ? this.#fmt(kwh, 1, "kWh") : ""}
-          >${day}</span
-        >`,
+        html`<button
+          type="button"
+          class="day l${level} ${date === this._day ? "selected" : ""} ${date === today ? "today" : ""}"
+          data-date=${date}
+          ?disabled=${future}
+          aria-pressed=${String(date === this._day)}
+          aria-label=${new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(parseDate(date))}
+          @click=${() => this.#pickDay(date)}
+        >
+          <span class="d">${day}</span>
+          ${kwh !== undefined ? html`<span class="k">${this.#fmt(kwh, 1)}</span>` : nothing}
+        </button>`,
       );
     }
-    return html`<div class="cal-head">${weekdays.map((w) => html`<span>${w}</span>`)}</div>
-      <div class="cal">${cells}</div>`;
+    return html`<section class="card">
+      <div class="row-head">
+        <div class="month-nav">
+          <button
+            type="button"
+            class="nav"
+            aria-label=${t("energy.prev_month")}
+            @click=${() => this.#shiftMonth(-1)}
+          >
+            ‹
+          </button>
+          <span class="label"
+            >${new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(month)}</span
+          >
+          <button
+            type="button"
+            class="nav"
+            aria-label=${t("energy.next_month")}
+            ?disabled=${isCurrent}
+            @click=${() => this.#shiftMonth(1)}
+          >
+            ›
+          </button>
+        </div>
+        <span class="label">${this.#fmt(total, 1, "kWh")}</span>
+      </div>
+      ${
+        this._rec
+          ? html`<div class="cal-head">${weekdays.map((w) => html`<span>${w}</span>`)}</div>
+              <div class="cal">${cells}</div>`
+          : html`<div class="loading"></div>`
+      }
+      <div class="hint">${t("energy.pick_day")}</div>
+    </section>`;
+  }
+
+  #renderConsumers(live: LiveEnergy) {
+    const { t } = this.ctx;
+    const now = new Date();
+    const today = localDate(now);
+    const monthStart = localDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const rows = live.consumers.map((c) => {
+      const days = this._rec?.consumerDays[c.id];
+      return {
+        ...c,
+        today: days ? sumFrom(days, today) : null,
+        month: days ? sumFrom(days, monthStart) : null,
+        year: days ? sumFrom(days, `${now.getFullYear()}-01-01`) : null,
+      };
+    });
+    const totalOf = (key: "today" | "month" | "year") =>
+      rows.some((r) => r[key] !== null) ? rows.reduce((s, r) => s + (r[key] ?? 0), 0) : null;
+    return html`<section class="card wide">
+      <div class="label">${t("energy.consumers")}</div>
+      <div class="table-wrap">
+        <table class="ctable">
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col">${t("energy.now")}</th>
+              <th scope="col">${t("energy.today")}</th>
+              <th scope="col">${t("energy.month")}</th>
+              <th scope="col">${t("energy.year")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${repeat(
+              rows,
+              (r) => r.id,
+              (r) =>
+                html`<tr>
+                  <th scope="row">${r.name}</th>
+                  <td>${this.#fmt(r.watts, 0, "W")}</td>
+                  <td>${this.#fmt(r.today, 2)}</td>
+                  <td>${this.#fmt(r.month, 1)}</td>
+                  <td>${this.#fmt(r.year, 0)}</td>
+                </tr>`,
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">${t("energy.total")}</th>
+              <td>
+                ${this.#fmt(
+                  live.consumers.reduce((s, c) => s + (c.watts ?? 0), 0),
+                  0,
+                  "W",
+                )}
+              </td>
+              <td>${this.#fmt(totalOf("today"), 2)}</td>
+              <td>${this.#fmt(totalOf("month"), 1)}</td>
+              <td>${this.#fmt(totalOf("year"), 0)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="hint">kWh</div>
+    </section>`;
   }
 
   protected override render() {
@@ -274,10 +466,13 @@ export class AtriumEnergyPage extends LitElement {
       return html`<h1>${t("energy.title")}</h1>
         <p class="hint">${t("energy.none")}</p>`;
     }
-    const rec = this._rec;
-    const todayKwh = rec?.today ?? null;
+    const now = new Date();
+    const days = this._rec?.days ?? [];
+    const todayKwh = this._rec ? (this.#dayKwh(localDate(now)) ?? 0) : null;
+    const week = this._rec ? sumFrom(days, localDate(new Date(now.getTime() - 6 * DAY_MS))) : null;
+    const month = this._rec ? sumFrom(days, localDate(new Date(now.getFullYear(), now.getMonth(), 1))) : null;
+    const year = this._rec ? sumFrom(days, `${now.getFullYear()}-01-01`) : null;
     const amort = amortisation(Number.isNaN(live.total ?? NaN) ? null : live.total, cfg);
-    const maxConsumer = Math.max(1, ...live.consumers.map((c) => c.watts ?? 0));
     return html`<h1>${t("energy.title")}</h1>
       <div class="layout">
         <section class="hero">
@@ -309,80 +504,40 @@ export class AtriumEnergyPage extends LitElement {
               : nothing
           }
           <div>
-            <b>${this.#money(todayKwh !== null && cfg.price ? todayKwh * cfg.price : null)}</b
-            ><span>${t("energy.earned_today")}</span>
+            <b>${this.#money(todayKwh !== null && cfg.price ? todayKwh * cfg.price : null)}</b>
+            <span>${t("energy.earned_today")}</span>
           </div>
           <div>
-            <b>${this.#fmt(todayKwh !== null && cfg.co2PerKwh ? todayKwh * cfg.co2PerKwh : null, 2, "kg")}</b
-            ><span>${t("energy.co2")}</span>
+            <b>${this.#fmt(todayKwh !== null && cfg.co2PerKwh ? todayKwh * cfg.co2PerKwh : null, 2, "kg")}</b>
+            <span>${t("energy.co2")}</span>
           </div>
           <div>
-            <b>${live.efficiency !== null ? this.#fmt(live.efficiency * 100, 0, "%") : "—"}</b
-            ><span>${t("energy.efficiency")}</span>
+            <b>${live.efficiency !== null ? this.#fmt(live.efficiency * 100, 0, "%") : "—"}</b>
+            <span>${t("energy.efficiency")}</span>
           </div>
-          ${live.temp !== null ? html`<div><b>${this.#fmt(live.temp, 0, "°C")}</b><span>${t("energy.inverter")}</span></div>` : nothing}
-          ${live.frequency !== null ? html`<div><b>${this.#fmt(live.frequency, 2, "Hz")}</b><span>${t("energy.frequency")}</span></div>` : nothing}
+          ${
+            live.temp !== null
+              ? html`<div><b>${this.#fmt(live.temp, 0, "°C")}</b><span>${t("energy.inverter")}</span></div>`
+              : nothing
+          }
+          ${
+            live.frequency !== null
+              ? html`<div>
+                  <b>${this.#fmt(live.frequency, 2, "Hz")}</b><span>${t("energy.frequency")}</span>
+                </div>`
+              : nothing
+          }
         </section>
 
-        <section class="card">
-          <div class="label">${t("energy.today_curve")}</div>
-          ${rec ? this.#dayCurve(rec.history, cfg) : html`<div class="loading"></div>`}
+        ${this.#renderDay(cfg)} ${this.#renderCalendar()}
+
+        <section class="totals wide">
+          <div><b>${this.#fmt(week, 1, "kWh")}</b><span>${t("energy.week")}</span></div>
+          <div><b>${this.#fmt(month, 1, "kWh")}</b><span>${t("energy.month")}</span></div>
+          <div><b>${this.#fmt(year, 0, "kWh")}</b><span>${t("energy.year")}</span></div>
         </section>
 
-        <section class="card">
-          <div class="row-head">
-            <span class="label"
-              >${new Intl.DateTimeFormat(this.ctx.locale, { month: "long" }).format(new Date())} · kWh</span
-            >
-            <span class="label">${this.#fmt(rec?.monthTotal ?? null, 1, "kWh")}</span>
-          </div>
-          ${rec ? this.#calendar(rec.month) : html`<div class="loading"></div>`}
-          <div class="totals">
-            <div><b>${this.#fmt(rec?.week ?? null, 1)}</b><span>${t("energy.week")}</span></div>
-            <div><b>${this.#fmt(rec?.monthTotal ?? null, 1)}</b><span>${t("energy.month")}</span></div>
-            <div><b>${this.#fmt(rec?.year ?? null, 0)}</b><span>${t("energy.year")}</span></div>
-          </div>
-        </section>
-
-        ${
-          live.consumers.length
-            ? html`<section class="card">
-                <div class="row-head">
-                  <span class="label">${t("energy.consumers")}</span>
-                  <span class="label"
-                    >${this.#fmt(
-                      live.consumers.reduce((s, c) => s + (c.watts ?? 0), 0),
-                      0,
-                      "W",
-                    )}</span
-                  >
-                </div>
-                <div class="consumers">
-                  ${repeat(
-                    live.consumers,
-                    (c) => c.id,
-                    (c) =>
-                      html`<div class="consumer">
-                        <div class="c-top">
-                          <span>${c.name}</span><span>${this.#fmt(c.watts, 0, "W")}</span>
-                        </div>
-                        <div class="c-bar">
-                          <span style="width: ${((c.watts ?? 0) / maxConsumer) * 100}%"></span>
-                        </div>
-                        ${
-                          rec?.consumersToday[c.id] !== undefined
-                            ? html`<div class="c-sub">
-                                ${this.#fmt(rec.consumersToday[c.id] ?? 0, 2, "kWh")}
-                                ${t("energy.today").toLowerCase()}
-                              </div>`
-                            : nothing
-                        }
-                      </div>`,
-                  )}
-                </div>
-              </section>`
-            : nothing
-        }
+        ${live.consumers.length ? this.#renderConsumers(live) : nothing}
         ${
           amort
             ? html`<section class="card">
@@ -396,7 +551,9 @@ export class AtriumEnergyPage extends LitElement {
                   ${
                     amort.paybackDate
                       ? html`· ${t("energy.payback")}
-                        ${new Intl.DateTimeFormat(this.ctx.locale, { month: "long", year: "numeric" }).format(new Date(amort.paybackDate))}`
+                        ${new Intl.DateTimeFormat(this.ctx.locale, { month: "long", year: "numeric" }).format(
+                          new Date(amort.paybackDate),
+                        )}`
                       : nothing
                   }
                 </div>
@@ -424,6 +581,7 @@ export class AtriumEnergyPage extends LitElement {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 12px;
+        align-items: start;
       }
       @media (min-width: 900px) {
         .layout {
@@ -706,6 +864,122 @@ export class AtriumEnergyPage extends LitElement {
         height: 120px;
         border-radius: var(--a-radius);
         background: var(--a-s2);
+      }
+      .day-facts {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .day-facts div {
+        background: var(--a-s2);
+        border-radius: var(--a-radius);
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .day-facts b {
+        font-size: 17px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-variant-numeric: tabular-nums;
+      }
+      .day-facts span {
+        font-size: 12px;
+        color: var(--a-text2);
+      }
+      .link,
+      .nav {
+        border: 0;
+        background: var(--a-s3);
+        color: var(--a-text);
+        border-radius: var(--a-radius);
+        min-height: 36px;
+        font-weight: 600;
+      }
+      .link {
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .nav {
+        width: 36px;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .nav:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .month-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .row-head {
+        align-items: center;
+      }
+      button.day {
+        border: 0;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+        height: 44px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      button.day:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
+      button.day .k {
+        font-size: 11px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      button.day.selected {
+        outline: 2px solid var(--a-text);
+        outline-offset: -2px;
+      }
+      button.day.today:not(.selected) {
+        box-shadow: inset 0 -3px 0 var(--a-text2);
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table.ctable {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      table.ctable th,
+      table.ctable td {
+        padding: 8px 6px;
+        text-align: right;
+        white-space: nowrap;
+        font-size: 14px;
+      }
+      table.ctable th[scope="row"] {
+        text-align: left;
+        font-weight: 600;
+        white-space: normal;
+      }
+      table.ctable thead th {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--a-text2);
+      }
+      table.ctable tbody tr + tr {
+        border-top: 1px solid var(--a-s3);
+      }
+      table.ctable tfoot {
+        border-top: 2px solid var(--a-s3);
+      }
+      table.ctable tfoot th,
+      table.ctable tfoot td {
+        font-weight: 700;
       }
     `,
   ];

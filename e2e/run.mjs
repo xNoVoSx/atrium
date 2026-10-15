@@ -395,6 +395,65 @@ async function main() {
   });
   check("energy page renders flow and month calendar", energy != null && e.strings > 0 && e.days >= 28, `${e.strings} strings, ${e.days} days`);
   check("daily values come from statistics", e.filled > 0 && e.today !== "—", `${e.filled} days with data, today ${e.today}`);
+
+  // Pick a past day, then go back one month.
+  const energyRoot = () =>
+    deskPage.evaluate(() => {
+      const deep = (root, sel) => {
+        const hit = root.querySelector(sel);
+        if (hit) return hit;
+        for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+        return null;
+      };
+      const page = deep(document, "atrium-energy-page")?.shadowRoot;
+      return {
+        day: page?.querySelector("section[data-day]")?.dataset.day,
+        produced: page?.querySelector(".day-facts b")?.textContent.trim(),
+        curve: Boolean(page?.querySelector(".curve .line")),
+        note: page?.querySelector("section[data-day] .hint")?.textContent.trim() ?? "",
+        month: page?.querySelector(".month-nav .label")?.textContent.trim(),
+        filled: page?.querySelectorAll(".cal .day .k").length ?? 0,
+        tableRows: [...(page?.querySelectorAll(".ctable tbody tr") ?? [])].map((r) =>
+          [...r.querySelectorAll("td")].map((c) => c.textContent.trim()),
+        ),
+      };
+    });
+  const clickIn = (selector) =>
+    deskPage.evaluate((sel) => {
+      const deep = (root, s) => {
+        const hit = root.querySelector(s);
+        if (hit) return hit;
+        for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, s); if (x) return x; }
+        return null;
+      };
+      const el = deep(document, "atrium-energy-page")?.shadowRoot.querySelector(sel);
+      el?.click();
+      return Boolean(el);
+    }, selector);
+  const past = new Date(Date.now() - 3 * 86400000);
+  const pastDate = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, "0")}-${String(past.getDate()).padStart(2, "0")}`;
+  if (past.getMonth() !== new Date().getMonth()) await clickIn(".month-nav .nav");
+  await deskPage.waitForTimeout(300);
+  await clickIn(`button.day[data-date="${pastDate}"]`);
+  const picked = await waitFor(async () => {
+    const r = await energyRoot();
+    return r.day === pastDate && r.curve ? r : null;
+  }, { timeout: 10000 });
+  const pickedInfo = await energyRoot();
+  check("a past day shows its curve and kWh", picked != null && pickedInfo.produced !== "—", `${pastDate}: ${pickedInfo.produced}${pickedInfo.note ? " · " + pickedInfo.note : ""}`);
+  await deskPage.screenshot({ path: `${SHOTS}desktop-energy-day.png`, fullPage: true });
+  await clickIn(".month-nav .nav");
+  const prevMonth = await waitFor(async () => {
+    const r = await energyRoot();
+    return r.filled > 0 && r.month !== pickedInfo.month ? r : null;
+  }, { timeout: 10000 });
+  const pm = await energyRoot();
+  check("previous month has daily values", prevMonth != null, `${pm.month}: ${pm.filled} days`);
+  check(
+    "consumers table has month and year values",
+    pickedInfo.tableRows.length > 0 && pickedInfo.tableRows.some((r) => r[2] !== "—" && r[3] !== "—"),
+    JSON.stringify(pickedInfo.tableRows[0]),
+  );
   await deskPage.waitForTimeout(500);
   await deskPage.screenshot({ path: `${SHOTS}desktop-energy.png`, fullPage: true });
   await clickNav(deskPage, "home");
