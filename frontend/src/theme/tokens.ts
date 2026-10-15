@@ -56,3 +56,16 @@ export const tokens = css`
     color-scheme: light;
   }
 `;
+
+/** Accent colours a user can pick; "on" is the text colour on the accent. */
+export const ACCENTS: Record<string, { accent: string; on: string }> = {
+  ocher: { accent: "#e2b866", on: "#2a1e05" },
+  sage: { accent: "#8fbf95", on: "#0f2412" },
+  slate: { accent: "#8fb3d6", on: "#0b1a28" },
+  terra: { accent: "#e09a7c", on: "#2a1008" },
+  lavender: { accent: "#bfaee6", on: "#1c1230" },
+  mint: { accent: "#82cdb9", on: "#06231c" },
+};
+
+export const DENSITIES = ["compact", "normal", "large"] as const;
+export type Density = (typeof DENSITIES)[number];

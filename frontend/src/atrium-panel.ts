@@ -15,7 +15,7 @@ import { VersionWatch, loadedHash } from "./data/version-watch";
 import { translator } from "./i18n";
 import { navigate as navigateTo, parseRoute, type PageRoute } from "./router";
 import { ICONS } from "./theme/shared";
-import { tokens, type ThemePreference } from "./theme/tokens";
+import { ACCENTS, DENSITIES, tokens, type Density, type ThemePreference } from "./theme/tokens";
 import type { HomeAssistant, PanelInfo, Route } from "./types/hass";
 import { reportClient } from "./util/diagnostics";
 import { WI } from "./widgets/icons";
@@ -304,6 +304,20 @@ export class AtriumPanel extends LitElement {
     // Entry effects become instant and loops run once, i.e. everything stands still.
     this.style.setProperty("--a-motion", motionOff ? "0.001" : "1");
     this.style.setProperty("--a-iter", motionOff ? "1" : "infinite");
+    const accent = ACCENTS[String(this._user.accent ?? "")];
+    if (accent) {
+      this.style.setProperty("--a-ocher", accent.accent);
+      this.style.setProperty("--a-on-ocher", accent.on);
+    } else {
+      this.style.removeProperty("--a-ocher");
+      this.style.removeProperty("--a-on-ocher");
+    }
+    const density = DENSITIES.includes(this._user.density as Density)
+      ? (this._user.density as Density)
+      : level === "simple"
+        ? "large"
+        : "normal";
+    this.setAttribute("density", density);
     this.#ctx = {
       store: this.store,
       t: translator(hass?.language),
@@ -659,12 +673,12 @@ export class AtriumPanel extends LitElement {
         box-sizing: border-box;
         position: relative;
       }
-      /* "Simple" view: everything a little larger and easier to hit. */
-      :host([level="simple"]) main {
+      /* Size: "large" (default for the simple view) makes everything easier to read and hit. */
+      :host([density="large"]) main {
         zoom: 1.12;
       }
-      :host([level="simple"]) nav {
-        font-size: 1.05em;
+      :host([density="compact"]) main {
+        zoom: 0.92;
       }
       :host([narrow]) main {
         padding-bottom: calc(96px + env(safe-area-inset-bottom));

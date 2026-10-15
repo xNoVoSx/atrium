@@ -23,7 +23,7 @@ import { isLevel, levelAllows, levelChoiceAllowed, LEVELS } from "../data/levels
 import { customPages } from "../data/pages";
 import { WIDGETS } from "../widgets/catalog";
 import { WI } from "../widgets/icons";
-import type { ThemePreference } from "../theme/tokens";
+import { ACCENTS, DENSITIES, type ThemePreference } from "../theme/tokens";
 
 export class AtriumRoomsPage extends LitElement {
   static override properties = { ctx: { attribute: false } };
@@ -536,6 +536,56 @@ export class AtriumSettingsPage extends LitElement {
         </div>
         <p class="hint">${t("settings.motion_hint")}</p>
       </section>
+      <section>
+        <h2 class="label">${t("settings.accent")}</h2>
+        <div class="swatches" role="group" aria-label=${t("settings.accent")}>
+          ${Object.entries(ACCENTS).map(
+            ([id, c]) =>
+              html`<button
+                type="button"
+                class="swatch"
+                data-accent=${id}
+                style="--c:${c.accent}"
+                aria-pressed=${String((user.accent ?? "ocher") === id)}
+                aria-label=${t(`accent.${id}` as MessageKey)}
+                title=${t(`accent.${id}` as MessageKey)}
+                @click=${() => {
+                  const next = { ...user };
+                  if (id === "ocher") delete next.accent;
+                  else next.accent = id;
+                  saveUser(next);
+                }}
+              ></button>`,
+          )}
+        </div>
+      </section>
+      <section>
+        <h2 class="label">${t("settings.density")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.density")}>
+          <button
+            type="button"
+            aria-pressed=${String(!user.density)}
+            @click=${() => {
+              const next = { ...user };
+              delete next.density;
+              saveUser(next);
+            }}
+          >
+            ${t("settings.auto")}
+          </button>
+          ${DENSITIES.map(
+            (d) =>
+              html`<button
+                type="button"
+                data-density=${d}
+                aria-pressed=${String(user.density === d)}
+                @click=${() => saveUser({ ...user, density: d })}
+              >
+                ${t(`settings.density_${d}` as MessageKey)}
+              </button>`,
+          )}
+        </div>
+      </section>
       ${
         canChoose
           ? html`<section>
@@ -634,6 +684,27 @@ export class AtriumSettingsPage extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      .swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .swatch {
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+        border: 0;
+        background: var(--c);
+        cursor: pointer;
+        box-shadow: 0 0 0 3px var(--a-bg);
+        transition: transform calc(var(--a-motion, 1) * 150ms);
+      }
+      .swatch[aria-pressed="true"] {
+        box-shadow:
+          0 0 0 3px var(--a-bg),
+          0 0 0 5px var(--a-text);
+        transform: scale(1.08);
       }
       .tabs {
         display: flex;

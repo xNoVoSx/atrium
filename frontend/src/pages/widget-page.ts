@@ -36,6 +36,7 @@ export class AtriumWidgetPage extends LitElement {
   static override properties = {
     ctx: { attribute: false },
     pageId: { attribute: "page-id" },
+    embedded: { type: Boolean },
     _preview: { state: true },
     _editing: { state: true },
     _picking: { state: true },
@@ -45,6 +46,8 @@ export class AtriumWidgetPage extends LitElement {
 
   declare ctx: PanelContext;
   declare pageId: string;
+  /** Part of another page (a room): no heading, nothing shown while empty. */
+  declare embedded: boolean;
   declare _preview: string[] | null;
   /** Widget whose settings are open. */
   declare _editing: string | null;
@@ -62,6 +65,7 @@ export class AtriumWidgetPage extends LitElement {
   constructor() {
     super();
     this.pageId = HOME_PAGE;
+    this.embedded = false;
     this._preview = null;
     this._editing = null;
     this._picking = false;
@@ -135,7 +139,10 @@ export class AtriumWidgetPage extends LitElement {
   #onAdd(ev: CustomEvent<string>): void {
     const def = widgetDef(ev.detail);
     if (!def) return;
-    const next = addWidget(this.ctx.layout, this.pageId, { type: def.type });
+    // On a room's page, widgets that can be limited to a room start with this room.
+    const room = this.pageId.startsWith("room:") ? this.pageId.slice(5) : "";
+    const preset = room && def.options?.some((o) => o.kind === "area") ? { options: { area: room } } : {};
+    const next = addWidget(this.ctx.layout, this.pageId, { type: def.type, ...preset });
     this.ctx.saveLayout(next);
     const added = page(next, this.pageId)?.widgets.at(-1);
     this.#sheet()?.close();
@@ -278,6 +285,7 @@ export class AtriumWidgetPage extends LitElement {
     if (!cfg) return html`<p class="hint">${t("page.missing")}</p>`;
     const widgets = this.#widgets();
     const canEdit = this.#canEdit;
+    if (this.embedded && !widgets.length && !canEdit) return nothing;
     return html`
       ${cfg.title ? html`<h1>${cfg.icon && customElements.get("ha-icon") ? html`<ha-icon .icon=${cfg.icon}></ha-icon>` : nothing}${cfg.title}</h1>` : nothing}
       ${
@@ -302,7 +310,7 @@ export class AtriumWidgetPage extends LitElement {
             </div>`
           : this.#columns(widgets)
       }
-      ${!widgets.length && !canEdit ? html`<p class="hint">${t(this.ctx.isAdmin ? "page.empty_admin" : "page.empty")}</p>` : nothing}
+      ${!widgets.length && !canEdit && !this.embedded ? html`<p class="hint">${t(this.ctx.isAdmin ? "page.empty_admin" : "page.empty")}</p>` : nothing}
       ${
         canEdit
           ? html`<atrium-sheet

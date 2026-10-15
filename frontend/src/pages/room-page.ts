@@ -5,6 +5,7 @@ import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { adjacentRooms, areaTemperature, roomContent, rooms } from "../data/home";
 import { savedOrder } from "../data/layout";
+import { roomPageId } from "../data/pages";
 import { nameOf, withoutArea } from "../data/registry";
 import type { MessageKey, Translate } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
@@ -265,6 +266,7 @@ export class AtriumRoomPage extends LitElement {
               )
             : nothing
         }
+        <atrium-widget-page .ctx=${this.ctx} .pageId=${roomPageId(this.areaId)} embedded></atrium-widget-page>
         ${
           c.climate.length + c.lights.length + c.devices.length + c.media.length === 0 &&
           !room.binary.length &&
