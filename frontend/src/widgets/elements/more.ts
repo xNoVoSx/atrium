@@ -3,6 +3,7 @@
 import { css, html, nothing, type PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { SelectorController } from "../../data/entity-store";
+import { energyConfig, liveEnergy, type LiveEnergy } from "../../data/energy";
 import { areaTemperature, lightEntities } from "../../data/home";
 import { isAutoVisible, nameOf } from "../../data/registry";
 import type { MessageKey } from "../../i18n";
@@ -375,3 +376,83 @@ export class AtriumRoomCardWidget extends WidgetBase {
     `,
   ];
 }
+
+// ---- energy flow ----
+
+export class AtriumEnergyFlowWidget extends WidgetBase {
+  #live = new SelectorController(
+    this,
+    () => this.ctx?.store,
+    (hass) => {
+      const cfg = energyConfig(hass, this.ctx.layout);
+      return cfg.acPower || cfg.pvPower?.length ? liveEnergy(hass, cfg) : null;
+    },
+  );
+
+  protected override willUpdate(changed: PropertyValues<this>): void {
+    this.#live.attach();
+    if (changed.has("ctx")) this.#live.refresh();
+  }
+
+  protected override render() {
+    if (!this.ctx) return nothing;
+    const live = this.demo ? DEMO_LIVE : (this.#live.value ?? null);
+    if (!live)
+      return this.ctx.editing
+        ? html`<div class="w missing">
+            ${this.renderHead()}
+            <p class="empty">${this.ctx.t("w.not_found")}</p>
+          </div>`
+        : nothing;
+    return html`<button
+      type="button"
+      class="w open"
+      @click=${() => !this.demo && this.ctx.navigate({ page: "category", category: "energy" })}
+    >
+      ${this.renderHead()}
+      <atrium-energy-flow
+        .live=${live}
+        .t=${this.ctx.t}
+        .locale=${this.ctx.locale}
+        ?narrow=${this.ctx.narrow}
+      ></atrium-energy-flow>
+    </button>`;
+  }
+
+  static override styles = [
+    widgetStyles,
+    css`
+      .open {
+        all: unset;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        background: var(--a-s1);
+        border-radius: var(--a-radius);
+        padding: 14px;
+        cursor: pointer;
+      }
+    `,
+  ];
+}
+
+const DEMO_LIVE: LiveEnergy = {
+  ac: 612,
+  dc: 640,
+  loss: 28,
+  efficiency: 0.956,
+  ofPeak: 0.68,
+  temp: 41,
+  frequency: 50.01,
+  strings: [
+    { id: "a", name: "PV1", watts: 330 },
+    { id: "b", name: "PV2", watts: 310 },
+  ],
+  consumers: [
+    { id: "a", name: "Kühlschrank", watts: 92 },
+    { id: "b", name: "Server", watts: 310 },
+    { id: "c", name: "Waschmaschine", watts: 420 },
+  ],
+};

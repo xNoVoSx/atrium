@@ -2,6 +2,8 @@
 
 export const widgetsEn = {
   // groups
+  "wn.energyflow": "Energy flow",
+  "wd.energyflow": "Live: solar → inverter → house → consumers, animated.",
   "wn.activity": "What happened",
   "wn.room": "One room",
   "wd.activity": "Doors, lights, people: the latest events as a timeline.",
@@ -285,6 +287,8 @@ export const widgetsEn = {
 export type WidgetsKey = keyof typeof widgetsEn;
 
 export const widgetsDe: Record<WidgetsKey, string> = {
+  "wn.energyflow": "Energiefluss",
+  "wd.energyflow": "Live: Sonne → Wechselrichter → Haus → Verbraucher, animiert.",
   "wn.activity": "Was ist passiert",
   "wn.room": "Ein Raum",
   "wd.activity": "Türen, Lichter, Personen: die letzten Ereignisse als Zeitleiste.",

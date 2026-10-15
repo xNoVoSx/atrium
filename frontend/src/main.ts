@@ -24,6 +24,7 @@ import { AtriumMediaCard } from "./components/media-card";
 import { AtriumRoomPage } from "./pages/room-page";
 import { AtriumWidgetPage } from "./pages/widget-page";
 import { AtriumSearch } from "./components/search";
+import { AtriumEnergyFlow } from "./components/energy-flow";
 import { AtriumScreensaver } from "./components/screensaver";
 import {
   AtriumHomeSettings,
@@ -34,7 +35,7 @@ import {
 import { AtriumWidgetEditor } from "./components/widget-editor";
 import { AtriumWidgetPicker } from "./components/widget-picker";
 import { AtriumDataWidget } from "./widgets/elements/data-widget";
-import { AtriumActivityWidget, AtriumRoomCardWidget } from "./widgets/elements/more";
+import { AtriumActivityWidget, AtriumEnergyFlowWidget, AtriumRoomCardWidget } from "./widgets/elements/more";
 import {
   AtriumCamerasWidget,
   AtriumEntitiesWidget,
@@ -101,6 +102,7 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-settings-page", AtriumSettingsPage],
   ["atrium-widget-page", AtriumWidgetPage],
   ["atrium-search", AtriumSearch],
+  ["atrium-energy-flow", AtriumEnergyFlow],
   ["atrium-screensaver", AtriumScreensaver],
   ["atrium-home-settings", AtriumHomeSettings],
   ["atrium-nav-settings", AtriumNavSettings],
@@ -111,6 +113,7 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-data-widget", AtriumDataWidget],
   ["atrium-activity-widget", AtriumActivityWidget],
   ["atrium-room-card-widget", AtriumRoomCardWidget],
+  ["atrium-energy-flow-widget", AtriumEnergyFlowWidget],
   ["atrium-entities-widget", AtriumEntitiesWidget],
   ["atrium-graph-widget", AtriumGraphWidget],
   ["atrium-gauge-widget", AtriumGaugeWidget],

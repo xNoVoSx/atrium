@@ -1,7 +1,11 @@
 // Information, household, security, media and general-purpose widgets.
 
 import { html } from "lit";
+import { suggestEnergy } from "../../data/energy";
 import { mediaPlayers } from "../../data/home";
+
+const energyConfigured = (hass: HomeAssistant) =>
+  suggestEnergy(hass).acPower || suggestEnergy(hass).pvPower?.length;
 import type { Level } from "../../data/levels";
 import type { WidgetInstance, WidgetSize } from "../../data/pages";
 import type { MessageKey } from "../../i18n";
@@ -298,6 +302,17 @@ export const EXTRA_WIDGETS: WidgetDef[] = [
   ),
 
   // energy
+  el(
+    "energyflow",
+    (ctx, c, d) =>
+      html`<atrium-energy-flow-widget .ctx=${ctx} .config=${c} ?demo=${d}></atrium-energy-flow-widget>`,
+    "energy",
+    WI.energy,
+    (hass) => Boolean(energyConfigured(hass)),
+    {
+      size: "l",
+    },
+  ),
   dataWidget("batteries", "energy", WI.battery, ["sensor"], "m", "standard"),
 
   // media

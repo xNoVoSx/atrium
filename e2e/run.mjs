@@ -387,7 +387,7 @@ async function main() {
     };
     const page = deep(document, "atrium-energy-page")?.shadowRoot;
     return {
-      strings: page?.querySelectorAll(".flowchart .flow.pv").length ?? 0,
+      strings: page?.querySelector("atrium-energy-flow")?.shadowRoot?.querySelectorAll(".flowchart .flow.pv").length ?? 0,
       days: page?.querySelectorAll(".cal .day").length ?? 0,
       filled: page?.querySelectorAll(".cal .day:not(.l-1)").length ?? 0,
       today: page?.querySelector(".kpis b")?.textContent.trim(),
