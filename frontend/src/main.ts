@@ -17,6 +17,9 @@ import { AtriumWasteModule } from "./modules/waste-module";
 import { AtriumEnergyPage } from "./pages/energy-page";
 import { AtriumEnergySettings } from "./pages/energy-settings";
 import { AtriumHomePage } from "./pages/home-page";
+import { AtriumMediaPage, AtriumSecurityPage } from "./pages/security-media";
+import { AtriumCameraTile } from "./components/camera-tile";
+import { AtriumMediaCard } from "./components/media-card";
 import { AtriumRoomPage } from "./pages/room-page";
 import {
   AtriumCategoriesPage,
@@ -41,6 +44,10 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-energy-page", AtriumEnergyPage],
   ["atrium-energy-settings", AtriumEnergySettings],
   ["atrium-solar-module", AtriumSolarModule],
+  ["atrium-camera-tile", AtriumCameraTile],
+  ["atrium-media-card", AtriumMediaCard],
+  ["atrium-security-page", AtriumSecurityPage],
+  ["atrium-media-page", AtriumMediaPage],
   ["atrium-home-page", AtriumHomePage],
   ["atrium-rooms-page", AtriumRoomsPage],
   ["atrium-room-page", AtriumRoomPage],

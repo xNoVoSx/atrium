@@ -5,6 +5,8 @@ import {
   lowBatteries,
   garageDoors,
   batteries,
+  securityContent,
+  mediaPlayers,
   openItems,
   rooms,
   sceneEntities,
@@ -215,5 +217,40 @@ describe("room content", () => {
   it("finds neighbouring rooms, wrapping around", () => {
     expect(adjacentRooms(hass, "hall")).toEqual({ prev: "office", next: "office" });
     expect(adjacentRooms(hass, "nowhere")).toEqual({ prev: null, next: null });
+  });
+});
+
+describe("security and media", () => {
+  const hass = withStates(
+    {
+      "binary_sensor.roof_window": state("binary_sensor.roof_window", "off", { device_class: "window" }),
+      "binary_sensor.trv_window": state("binary_sensor.trv_window", "on", { device_class: "window" }),
+      "climate.trv": state("climate.trv", "heat", {}),
+      "binary_sensor.garage": state("binary_sensor.garage", "off", { device_class: "garage_door" }),
+      "binary_sensor.doorbell_person": state("binary_sensor.doorbell_person", "off", {
+        device_class: "motion",
+      }),
+      "camera.doorbell": state("camera.doorbell", "idle", {}),
+      "camera.broken": state("camera.broken", "unavailable", {}),
+      "media_player.tv": state("media_player.tv", "off", {}),
+      "media_player.box": state("media_player.box", "playing", {}),
+      "media_player.gone": state("media_player.gone", "unavailable", {}),
+    },
+    {
+      "binary_sensor.trv_window": { entity_id: "binary_sensor.trv_window", labels: [], device_id: "trv" },
+      "climate.trv": { entity_id: "climate.trv", labels: [], device_id: "trv" },
+    },
+  );
+
+  it("sorts security entities into groups", () => {
+    const s = securityContent(hass);
+    expect(s.openings).toEqual(["binary_sensor.roof_window"]);
+    expect(s.garages.map((g) => g.entityId)).toEqual(["binary_sensor.garage"]);
+    expect(s.motion).toEqual(["binary_sensor.doorbell_person"]);
+    expect(s.cameras).toEqual(["camera.doorbell"]);
+  });
+
+  it("lists available media players, playing first", () => {
+    expect(mediaPlayers(hass)).toEqual(["media_player.box", "media_player.tv"]);
   });
 });

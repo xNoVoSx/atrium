@@ -405,3 +405,54 @@ export function adjacentRooms(
     next: list[(i + 1) % list.length] ?? null,
   };
 }
+
+// ---- security ----
+
+export interface SecurityContent {
+  garages: GarageDoor[];
+  /** Doors and windows, open or closed (thermostat window detection excluded). */
+  openings: string[];
+  locks: string[];
+  alarms: string[];
+  /** Motion, occupancy and presence sensors. */
+  motion: string[];
+  cameras: string[];
+}
+
+const MOTION_CLASSES = ["motion", "occupancy", "presence"];
+
+export function securityContent(hass: HomeAssistant): SecurityContent {
+  const thermostats = thermostatDevices(hass);
+  const byName = byAreaThenName(hass);
+  const binary = visibleOfDomain(hass, "binary_sensor");
+  const cls = (id: string) => String(hass.states[id]?.attributes.device_class ?? "");
+  return {
+    garages: garageDoors(hass),
+    openings: binary
+      .filter((id) => OPENING_CLASSES.includes(cls(id)) && !isGarage(hass, id))
+      .filter((id) => {
+        const device = hass.entities[id]?.device_id;
+        return !(device && thermostats.has(device));
+      })
+      .sort(byName),
+    locks: visibleOfDomain(hass, "lock").sort(byName),
+    alarms: visibleOfDomain(hass, "alarm_control_panel").sort(byName),
+    motion: binary.filter((id) => MOTION_CLASSES.includes(cls(id))).sort(byName),
+    cameras: visibleOfDomain(hass, "camera")
+      .filter((id) => hass.states[id]?.state !== "unavailable")
+      .sort(byName),
+  };
+}
+
+// ---- media ----
+
+/** Media players that exist (not unavailable), playing ones first. */
+export function mediaPlayers(hass: HomeAssistant): string[] {
+  const rank = (id: string) => {
+    const state = hass.states[id]?.state;
+    return state === "playing" ? 0 : state === "paused" ? 1 : state === "off" || state === "standby" ? 3 : 2;
+  };
+  return visibleOfDomain(hass, "media_player")
+    .filter((id) => hass.states[id]?.state !== "unavailable")
+    .sort((a, b) => rank(a) - rank(b) || byAreaThenName(hass)(a, b));
+}

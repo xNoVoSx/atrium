@@ -459,6 +459,60 @@ async function main() {
   await clickNav(deskPage, "home");
   await deskPage.waitForTimeout(300);
 
+  // Security and media (looked at, not operated).
+  const goCategory = (category) =>
+    deskPage.evaluate((c) => {
+      history.pushState(null, "", `/atrium/category/${c}`);
+      window.dispatchEvent(new CustomEvent("location-changed"));
+    }, category);
+  const inPage = (tag, fn) =>
+    deskPage.evaluate(
+      ({ tag, fn }) => {
+        const deep = (root, sel) => {
+          const hit = root.querySelector(sel);
+          if (hit) return hit;
+          for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+          return null;
+        };
+        const root = deep(document, tag)?.shadowRoot;
+        return root ? new Function("root", fn)(root) : null;
+      },
+      { tag, fn },
+    );
+  await goCategory("security");
+  const security = await waitFor(
+    async () =>
+      inPage(
+        "atrium-security-page",
+        `const cams = [...root.querySelectorAll("atrium-camera-tile")];
+         const imgs = cams.map((c) => c.shadowRoot.querySelector("img")).filter(Boolean);
+         const loaded = imgs.filter((i) => i.complete && i.naturalWidth > 0).length;
+         if (!root.querySelector(".row") || loaded < cams.length) return null;
+         return { rows: root.querySelectorAll(".row").length, cameras: cams.length, images: imgs.length };`,
+      ),
+    { timeout: 20000, interval: 500 },
+  );
+  const sec = await inPage(
+    "atrium-security-page",
+    `const cams = [...root.querySelectorAll("atrium-camera-tile")];
+     return {
+       rows: root.querySelectorAll(".row").length,
+       cameras: cams.length,
+       loaded: cams.filter((c) => { const i = c.shadowRoot.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }).length,
+     };`,
+  );
+  check("security page lists gates, doors, motion and loads camera images", security != null, JSON.stringify(sec));
+  await deskPage.screenshot({ path: `${SHOTS}desktop-security.png`, fullPage: true });
+  await goCategory("media");
+  const media = await waitFor(
+    async () => inPage("atrium-media-page", `return root.querySelectorAll("atrium-media-card").length || null;`),
+    { timeout: 10000 },
+  );
+  check("media page shows the players", media != null, `${media} players`);
+  await deskPage.screenshot({ path: `${SHOTS}desktop-media.png`, fullPage: true });
+  await clickNav(deskPage, "home");
+  await deskPage.waitForTimeout(300);
+
   // Non-admins: favourites yes, hiding and layout no.
   await clickNav(deskPage, "settings");
   await deskPage.waitForTimeout(400);

@@ -45,6 +45,8 @@ export class AtriumCategoriesPage extends LitElement {
       ["light", "section.lights", "categories.lights"],
       ["climate", "section.heating", "categories.heating"],
       ["energy", "energy.title", "energy.sub"],
+      ["security", "security.title", "security.sub"],
+      ["media", "media.title", "media.sub"],
       ["batteries", "categories.batteries", "categories.batteries_sub"],
     ];
     return html`<h1>${t("nav.categories")}</h1>
@@ -152,6 +154,9 @@ export class AtriumCategoryPage extends LitElement {
     const { t } = this.ctx;
     if (this.category === "batteries") return this.#renderBatteries();
     if (this.category === "energy") return html`<atrium-energy-page .ctx=${this.ctx}></atrium-energy-page>`;
+    if (this.category === "security")
+      return html`<atrium-security-page .ctx=${this.ctx}></atrium-security-page>`;
+    if (this.category === "media") return html`<atrium-media-page .ctx=${this.ctx}></atrium-media-page>`;
     if (this.category === "climate") {
       const areas = [...new Set(climateZones(hass).map((id) => hass.entities[id]?.area_id ?? null))];
       return html`<h1>${t("section.heating")}</h1>
