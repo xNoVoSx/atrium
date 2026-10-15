@@ -16,7 +16,7 @@ import {
 
 describe("home modules", () => {
   it("shows a calm home page by default", () => {
-    expect(homeModules(undefined)).toEqual(["header", "status", "climate", "lights"]);
+    expect(homeModules(undefined)).toEqual(["header", "status", "climate", "solar", "lights"]);
   });
 
   it("applies order and hidden modules, ignoring unknown ids", () => {
@@ -25,6 +25,7 @@ describe("home modules", () => {
       "header",
       "status",
       "climate",
+      "solar",
       "lights",
       "waste",
     ]);
@@ -38,12 +39,12 @@ describe("home modules", () => {
   });
 
   it("moves a module up", () => {
-    const moved = moveModule({}, "lights", -1) as Record<string, unknown>;
+    const moved = moveModule({}, "lights", -1) as Record<string, unknown>; // lights moves above solar
     expect(
       homeModuleList(moved)
         .map((m) => m.id)
         .slice(0, 4),
-    ).toEqual(["header", "status", "lights", "climate"]);
+    ).toEqual(["header", "status", "climate", "lights"]);
   });
 });
 

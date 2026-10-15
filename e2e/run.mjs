@@ -353,6 +353,53 @@ async function main() {
     await deskPage.waitForTimeout(300);
   }
 
+  // Energy page (as a normal user: statistics and history must be readable).
+  await deskPage.evaluate(() => {
+    history.pushState(null, "", "/atrium/category/energy");
+    window.dispatchEvent(new CustomEvent("location-changed"));
+  });
+  const energy = await waitFor(
+    async () =>
+      deskPage.evaluate(() => {
+        const deep = (root, sel) => {
+          const hit = root.querySelector(sel);
+          if (hit) return hit;
+          for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+          return null;
+        };
+        const page = deep(document, "atrium-energy-page")?.shadowRoot;
+        if (!page?.querySelector(".cal")) return null;
+        return {
+          strings: page.querySelectorAll(".flowchart .flow.pv").length,
+          days: page.querySelectorAll(".cal .day").length,
+          filled: page.querySelectorAll(".cal .day:not(.l-1)").length,
+          kpis: [...page.querySelectorAll(".kpis b")].map((b) => b.textContent.trim()),
+        };
+      }),
+    { timeout: 15000 },
+  );
+  const e = await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    const page = deep(document, "atrium-energy-page")?.shadowRoot;
+    return {
+      strings: page?.querySelectorAll(".flowchart .flow.pv").length ?? 0,
+      days: page?.querySelectorAll(".cal .day").length ?? 0,
+      filled: page?.querySelectorAll(".cal .day:not(.l-1)").length ?? 0,
+      today: page?.querySelector(".kpis b")?.textContent.trim(),
+    };
+  });
+  check("energy page renders flow and month calendar", energy != null && e.strings > 0 && e.days >= 28, `${e.strings} strings, ${e.days} days`);
+  check("daily values come from statistics", e.filled > 0 && e.today !== "—", `${e.filled} days with data, today ${e.today}`);
+  await deskPage.waitForTimeout(500);
+  await deskPage.screenshot({ path: `${SHOTS}desktop-energy.png`, fullPage: true });
+  await clickNav(deskPage, "home");
+  await deskPage.waitForTimeout(300);
+
   // Non-admins: favourites yes, hiding and layout no.
   await clickNav(deskPage, "settings");
   await deskPage.waitForTimeout(400);

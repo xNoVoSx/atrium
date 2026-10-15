@@ -2,7 +2,16 @@
 // user). Everything not mentioned keeps its automatic place, so new entities,
 // rooms and modules appear without migrations. All changes return new objects.
 
-export const HOME_MODULES = ["header", "status", "climate", "lights", "scenes", "waste", "rooms"] as const;
+export const HOME_MODULES = [
+  "header",
+  "status",
+  "climate",
+  "solar",
+  "lights",
+  "scenes",
+  "waste",
+  "rooms",
+] as const;
 export type HomeModule = (typeof HOME_MODULES)[number];
 
 /**

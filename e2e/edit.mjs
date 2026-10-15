@@ -168,6 +168,20 @@ async function main() {
     );
     check("'show' brings it back", shown != null);
 
+    // Energy settings: change the price.
+    const priceSet = await page.evaluate(({ deep }) => {
+      const input = eval(deep)(document, 'input[data-energy="price"]');
+      if (!input) return false;
+      input.value = "0.31";
+      input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      return true;
+    }, { deep });
+    const priceSaved = await waitFor(
+      async () => (await ws(page, { type: "atrium/settings/get" })).layout.energy?.price === 0.31,
+      { timeout: 5000 },
+    );
+    check("energy price is saved from the settings", priceSet && priceSaved != null);
+
     // Home modules: switch rooms on.
     check("rooms module switch exists", await panelClick(page, '[data-module="rooms"] input'));
     const roomsOn = await waitFor(

@@ -44,6 +44,7 @@ export class AtriumCategoriesPage extends LitElement {
     const entries: Array<[string, MessageKey, MessageKey]> = [
       ["light", "section.lights", "categories.lights"],
       ["climate", "section.heating", "categories.heating"],
+      ["energy", "energy.title", "energy.sub"],
       ["batteries", "categories.batteries", "categories.batteries_sub"],
     ];
     return html`<h1>${t("nav.categories")}</h1>
@@ -150,6 +151,7 @@ export class AtriumCategoryPage extends LitElement {
     if (!hass) return nothing;
     const { t } = this.ctx;
     if (this.category === "batteries") return this.#renderBatteries();
+    if (this.category === "energy") return html`<atrium-energy-page .ctx=${this.ctx}></atrium-energy-page>`;
     if (this.category === "climate") {
       const areas = [...new Set(climateZones(hass).map((id) => hass.entities[id]?.area_id ?? null))];
       return html`<h1>${t("section.heating")}</h1>
@@ -393,7 +395,13 @@ export class AtriumSettingsPage extends LitElement {
           )}
         </div>
       </section>
-      ${isAdmin ? html`${this.#renderModules()} ${this.#renderRooms()} ${this.#renderHidden()}` : nothing}
+      ${
+        isAdmin
+          ? html`${this.#renderModules()} ${this.#renderRooms()}
+              <atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>
+              ${this.#renderHidden()}`
+          : nothing
+      }
       <p class="hint">${t("settings.edit_hint")}</p>
       <p class="hint">${t("settings.version")} ${this.version}</p>`;
   }
