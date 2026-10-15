@@ -2,6 +2,8 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "settings.frame_all": "Frame of all widgets",
+  "settings.frame_all_hint": "Your default look; a widget with its own frame keeps it.",
   "settings.fullscreen": "Full screen",
   "settings.fullscreen_toggle": "Full screen on / off",
   "settings.fullscreen_hint": "Hides the browser bars, e.g. on a wall tablet. Escape leaves it.",
@@ -153,6 +155,8 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "settings.frame_all": "Rahmen aller Widgets",
+  "settings.frame_all_hint": "Dein Standard-Aussehen; ein Widget mit eigenem Rahmen behält ihn.",
   "settings.fullscreen": "Vollbild",
   "settings.fullscreen_toggle": "Vollbild an / aus",
   "settings.fullscreen_hint":

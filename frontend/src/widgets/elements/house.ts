@@ -727,6 +727,17 @@ export class AtriumAlarmWidget extends ListWidget {
           opacity: 0.6;
         }
       }
+      :host([variant="compact"]) .alarm {
+        padding: 8px 10px;
+        gap: 8px;
+      }
+      :host([variant="compact"]) .shield svg {
+        width: 26px;
+        height: 26px;
+      }
+      :host([variant="compact"]) .tn b {
+        font-size: 15px;
+      }
     `,
   ];
 }

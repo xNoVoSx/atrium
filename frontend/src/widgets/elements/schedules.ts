@@ -166,22 +166,23 @@ export class AtriumSchedulesWidget extends WidgetBase {
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const { t } = this.ctx;
     return html`<div class="week">
-      ${DAYS.map(
-        (d, i) =>
-          html`<div class="day ${i === today ? "today" : ""}">
-            <span class="dn">${t(`day.${d}` as MessageKey)}</span>
-            <span class="track">
-              ${(cfg[d] ?? []).map((r) => {
-                const a = minutes(r.from);
-                const b = minutes(r.to) || 1440;
-                return html`<span
-                  class="block"
-                  style="left:${(a / 1440) * 100}%;width:${((b - a) / 1440) * 100}%"
-                ></span>`;
-              })}
-              ${i === today ? html`<span class="now" style="left:${(nowMin / 1440) * 100}%"></span>` : nothing}
-            </span>
-          </div>`,
+      ${DAYS.map((d, i) =>
+        this.variant === "today" && i !== today
+          ? nothing
+          : html`<div class="day ${i === today ? "today" : ""}">
+              <span class="dn">${t(`day.${d}` as MessageKey)}</span>
+              <span class="track">
+                ${(cfg[d] ?? []).map((r) => {
+                  const a = minutes(r.from);
+                  const b = minutes(r.to) || 1440;
+                  return html`<span
+                    class="block"
+                    style="left:${(a / 1440) * 100}%;width:${((b - a) / 1440) * 100}%"
+                  ></span>`;
+                })}
+                ${i === today ? html`<span class="now" style="left:${(nowMin / 1440) * 100}%"></span>` : nothing}
+              </span>
+            </div>`,
       )}
       <div class="day hours">
         <span class="dn"></span

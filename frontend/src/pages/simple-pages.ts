@@ -27,6 +27,7 @@ import type { WidgetDef } from "../widgets/types";
 import { WI } from "../widgets/icons";
 import { ACCENTS, DENSITIES, type ThemePreference } from "../theme/tokens";
 import { SCREENSAVER_CHOICES } from "../components/screensaver";
+import { SKINS } from "../widgets/skins";
 
 export class AtriumRoomsPage extends LitElement {
   static override properties = { ctx: { attribute: false } };
@@ -691,6 +692,28 @@ export class AtriumSettingsPage extends LitElement {
           )}
         </div>
         <p class="hint">${t("settings.saver_hint")}</p>
+      </section>
+      <section>
+        <h2 class="label">${t("settings.frame_all")}</h2>
+        <div class="seg" role="group" aria-label=${t("settings.frame_all")}>
+          ${SKINS.map(
+            ([id, label]) =>
+              html`<button
+                type="button"
+                data-frame=${id}
+                aria-pressed=${String((user.skin ?? "standard") === id)}
+                @click=${() => {
+                  const next = { ...user };
+                  if (id === "standard") delete next.skin;
+                  else next.skin = id;
+                  saveUser(next);
+                }}
+              >
+                ${t(label)}
+              </button>`,
+          )}
+        </div>
+        <p class="hint">${t("settings.frame_all_hint")}</p>
       </section>
       <section>
         <h2 class="label">${t("settings.accent")}</h2>

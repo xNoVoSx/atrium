@@ -247,7 +247,9 @@ export class AtriumWidgetPage extends LitElement {
     const size = w.size ?? def.size;
     const dimmed = canEdit && !widgetVisible(w, this.ctx.level);
     const levelHidden = canEdit && !w.disabled && !levelAllows(this.ctx.level, w.minLevel ?? def.minLevel);
-    const skin = typeof w.options?.skin === "string" ? `skin-${w.options.skin}` : "";
+    // The widget's own frame, else the user's default frame.
+    const chosen = w.options?.skin ?? this.ctx.user.skin;
+    const skin = typeof chosen === "string" && chosen !== "standard" ? `skin-${chosen}` : "";
     return html`<div class="slot s-${size} ${dimmed ? "dim" : ""}" data-sort-id=${w.id} data-widget=${w.type}>
       ${canEdit ? this.#toolbar(w) : nothing}
       ${levelHidden ? html`<div class="lvl">${t("w.level_hidden")}</div>` : nothing}

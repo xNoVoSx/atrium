@@ -169,6 +169,24 @@ export class AtriumGraphWidget extends WidgetBase {
     return this.config?.title || (this.#id && hass && !this.demo ? nameOf(hass, this.#id) : super.heading());
   }
 
+  /** Design "bars": the average of each of 24 equal time slices. */
+  #bars(W: number, H: number, min: number, max: number) {
+    const pts = this._points ?? [];
+    const t0 = Date.now() - this.#hours * 3600000;
+    const slice = (this.#hours * 3600000) / 24;
+    const span = max - min || 1;
+    const bars = Array.from({ length: 24 }, (_, i) => {
+      const inSlice = pts.filter((p) => p.t >= t0 + i * slice && p.t < t0 + (i + 1) * slice).map((p) => p.v);
+      return inSlice.length ? inSlice.reduce((a, b) => a + b, 0) / inSlice.length : null;
+    });
+    const w = W / 24;
+    return bars.map((v, i) => {
+      if (v === null) return svg``;
+      const h = 6 + ((v - min) / span) * (H - 12);
+      return svg`<rect x=${i * w + 1} y=${H - h} width=${w - 2} height=${h} rx="2" class="bar-r" />`;
+    });
+  }
+
   protected override render() {
     if (!this.ctx) return nothing;
     const { locale, t } = this.ctx;
@@ -207,7 +225,13 @@ export class AtriumGraphWidget extends WidgetBase {
       ${
         path
           ? html`<svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-                ${svg`<path d=${area} class="area" /><path d=${path} class="line"/>`}
+                ${
+                  this.variant === "bars"
+                    ? this.#bars(W, H, min, max)
+                    : this.variant === "area"
+                      ? svg`<path d=${area} class="area solid" />`
+                      : svg`<path d=${area} class="area" /><path d=${path} class="line"/>`
+                }
               </svg>
               <div class="range"><span>${fmt(locale, min, 1)}</span><span>${fmt(locale, max, 1)}</span></div>`
           : html`<p class="empty">${this._points === null ? "…" : t("w.no_history")}</p>`
@@ -253,6 +277,13 @@ export class AtriumGraphWidget extends WidgetBase {
         fill: var(--a-ocher);
         opacity: 0.12;
         animation: fade calc(var(--a-motion, 1) * 1.2s) ease-out both;
+      }
+      .area.solid {
+        opacity: 0.5;
+      }
+      .bar-r {
+        fill: var(--a-ocher);
+        opacity: 0.85;
       }
       .range {
         display: flex;
@@ -750,6 +781,7 @@ export class AtriumMediaWidget extends WidgetBase {
               .entityId=${id}
               .store=${this.ctx.store}
               .t=${this.ctx.t}
+              ?compact=${this.variant === "compact"}
             ></atrium-media-card>`,
         )}
       </div>

@@ -427,6 +427,29 @@ export class AtriumEnergyFlowWidget extends WidgetBase {
             <p class="empty">${this.ctx.t("w.not_found")}</p>
           </div>`
         : nothing;
+    if (this.variant === "numbers") {
+      const used = live.consumers.reduce((sum, c) => sum + (c.watts ?? 0), 0);
+      const grid = used - (live.ac ?? 0);
+      const f = (n: number | null) =>
+        n === null ? "—" : new Intl.NumberFormat(this.ctx.locale, { maximumFractionDigits: 0 }).format(n);
+      return html`<div class="w">
+        ${this.renderHead()}
+        <div class="summary">
+          <div class="stat tone-ok">
+            <span class="v">${f(live.ac)}<small>W</small></span
+            ><span class="l">${this.ctx.t("energy.solar_now")}</span>
+          </div>
+          <div class="stat">
+            <span class="v">${f(used)}<small>W</small></span
+            ><span class="l">${this.ctx.t("energy.consumers")}</span>
+          </div>
+          <div class="stat ${grid > 1 ? "tone-bad" : ""}">
+            <span class="v">${f(grid > 1 ? grid : 0)}<small>W</small></span
+            ><span class="l">${this.ctx.t("energy.grid")}</span>
+          </div>
+        </div>
+      </div>`;
+    }
     return html`<button
       type="button"
       class="w open"

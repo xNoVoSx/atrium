@@ -41,6 +41,12 @@ export const designsEn = {
   "v.bar": "Bar",
   "v.grid": "Grid",
   "v.timeline": "Timeline",
+  "v.curve": "Curve",
+  "v.bars": "Bars",
+  "v.area": "Area",
+  "v.week": "Week",
+  "v.today": "Today only",
+  "v.numbers": "Numbers only",
 };
 
 export type DesignsKey = keyof typeof designsEn;
@@ -86,4 +92,10 @@ export const designsDe: Record<DesignsKey, string> = {
   "v.bar": "Balken",
   "v.grid": "Raster",
   "v.timeline": "Zeitleiste",
+  "v.curve": "Kurve",
+  "v.bars": "Balken",
+  "v.area": "Fläche",
+  "v.week": "Woche",
+  "v.today": "Nur heute",
+  "v.numbers": "Nur Zahlen",
 };

@@ -519,6 +519,11 @@ const VARIANTS: Record<string, string[]> = {
   gauge: ["standard", "ring", "bar"],
   note: ["standard", "big"],
   links: ["grid", "list", "chips"],
+  graph: ["curve", "bars", "area"],
+  media: ["standard", "compact"],
+  schedules: ["week", "today"],
+  alarm: ["standard", "compact"],
+  energyflow: ["standard", "numbers"],
 };
 
 export const EXTRA_WIDGETS: WidgetDef[] = RAW.map((d) => {

@@ -27,13 +27,19 @@ export class AtriumMediaCard extends LitElement {
     entityId: { attribute: "entity-id", reflect: true },
     store: { attribute: false },
     t: { attribute: false },
+    compact: { type: Boolean, reflect: true },
     _volume: { state: true },
+    _failed: { state: true },
   };
 
   declare entityId: string;
   declare store: EntityStore | undefined;
   declare t: Translate;
+  /** Design "compact": one line with artwork, title and play/pause. */
+  declare compact: boolean;
   declare _volume: number | null;
+  /** Artwork address that did not load; a placeholder shows instead. */
+  declare _failed: string | undefined;
 
   #entity = new EntityController(this, () => this.store);
 
@@ -73,12 +79,7 @@ export class AtriumMediaCard extends LitElement {
       <div class="top">
         ${
           picture && on
-            ? html`<img
-                class="art"
-                src=${picture}
-                alt=""
-                @error=${(e: Event) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
-              />`
+            ? html`<img class="art" src=${picture} alt="" @error=${() => (this._failed = picture)} />`
             : html`<span class="art empty"></span>`
         }
         <div class="text">
@@ -277,6 +278,35 @@ export class AtriumMediaCard extends LitElement {
       width: 44px;
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+    :host([compact]) .card {
+      padding: 8px;
+      gap: 0;
+    }
+    :host([compact]) .art {
+      width: 40px;
+      height: 40px;
+    }
+    :host([compact]) .controls button:not(.main),
+    :host([compact]) .volume,
+    :host([compact]) .artist {
+      display: none;
+    }
+    :host([compact]) .controls {
+      position: absolute;
+      right: 64px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    :host([compact]) .controls button.main {
+      width: 44px;
+      height: 44px;
+    }
+    :host([compact]) .card {
+      position: relative;
+    }
+    :host([compact]) .text {
+      padding-right: 56px;
     }
   `;
 }
