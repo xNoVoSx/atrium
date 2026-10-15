@@ -19,6 +19,7 @@ import { groupByArea, nameOf } from "../data/registry";
 import type { MessageKey } from "../i18n";
 import { ICONS, shared } from "../theme/shared";
 import { CATEGORY_INFO } from "../data/categories";
+import { categoryList, roomSectionList, setCategory, setRoomSection } from "../data/layout";
 import { isLevel, levelAllows, levelChoiceAllowed, LEVELS } from "../data/levels";
 import { customPages } from "../data/pages";
 import { WIDGETS } from "../widgets/catalog";
@@ -46,17 +47,24 @@ export class AtriumCategoriesPage extends LitElement {
     const { t, navigate, level } = this.ctx;
     return html`<h1>${t("nav.categories")}</h1>
       <div class="list">
-        ${CATEGORY_INFO.filter((c) => levelAllows(level, c.minLevel)).map(
-          (c) =>
-            html`<button
-              type="button"
-              data-category=${c.id}
-              @click=${() => navigate({ page: "category", category: c.id })}
-            >
-              <span class="cico">${icon(c.icon, 24, 1.8)}</span>
-              <span class="title">${t(c.title)}</span><span class="sub">${t(c.sub)}</span>
-            </button>`,
-        )}
+        ${categoryList(
+          this.ctx.layout,
+          CATEGORY_INFO.map((c) => c.id),
+        )
+          .filter((x) => x.enabled)
+          .map((x) => CATEGORY_INFO.find((c) => c.id === x.id))
+          .filter((c): c is (typeof CATEGORY_INFO)[number] => Boolean(c) && levelAllows(level, c?.minLevel))
+          .map(
+            (c) =>
+              html`<button
+                type="button"
+                data-category=${c.id}
+                @click=${() => navigate({ page: "category", category: c.id })}
+              >
+                <span class="cico">${icon(c.icon, 24, 1.8)}</span>
+                <span class="title">${t(c.title)}</span><span class="sub">${t(c.sub)}</span>
+              </button>`,
+          )}
         ${customPages(this.ctx.layout)
           .filter((p) => levelAllows(level, p.minLevel))
           .map(
@@ -439,26 +447,79 @@ export class AtriumSettingsPage extends LitElement {
     const list = rooms(raw, savedOrder(layout, "rooms"));
     const ids = list.map((r) => r.areaId);
     return html`<section>
-      <h2 class="label">${t("settings.rooms")}</h2>
+        <h2 class="label">${t("settings.rooms")}</h2>
+        <div class="rows">
+          ${list.map(
+            (r, i) =>
+              html`<div class="row" data-area=${r.areaId}>
+                <span class="name ${hidden.has(r.areaId) ? "off" : ""}">${r.name}</span>
+                <button
+                  type="button"
+                  class="text"
+                  @click=${() => saveLayout(setAreaHidden(layout, r.areaId, !hidden.has(r.areaId)))}
+                >
+                  ${hidden.has(r.areaId) ? t("settings.show_room") : t("settings.hide_room")}
+                </button>
+                ${this.#moveButtons(
+                  (d) => saveLayout(setOrder(layout, "rooms", moveBy(ids, r.areaId, d))),
+                  i === 0,
+                  i === list.length - 1,
+                )}
+              </div>`,
+          )}
+        </div>
+      </section>
+      ${this.#renderRoomSections()}`;
+  }
+
+  #toggle(checked: boolean, onChange: (on: boolean) => void, label: string) {
+    return html`<label class="switch">
+      <input
+        type="checkbox"
+        aria-label=${label}
+        .checked=${checked}
+        @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+      />
+      <span class="track"></span>
+    </label>`;
+  }
+
+  #renderRoomSections() {
+    const { t, layout, saveLayout } = this.ctx;
+    const list = roomSectionList(layout);
+    return html`<section>
+      <h2 class="label">${t("settings.room_sections")}</h2>
+      <p class="hint">${t("settings.room_sections_hint")}</p>
       <div class="rows">
         ${list.map(
-          (r, i) =>
-            html`<div class="row" data-area=${r.areaId}>
-              <span class="name ${hidden.has(r.areaId) ? "off" : ""}">${r.name}</span>
-              <button
-                type="button"
-                class="text"
-                @click=${() => saveLayout(setAreaHidden(layout, r.areaId, !hidden.has(r.areaId)))}
-              >
-                ${hidden.has(r.areaId) ? t("settings.show_room") : t("settings.hide_room")}
-              </button>
-              ${this.#moveButtons(
-                (d) => saveLayout(setOrder(layout, "rooms", moveBy(ids, r.areaId, d))),
-                i === 0,
-                i === list.length - 1,
-              )}
+          (sec, i) =>
+            html`<div class="row" data-room-section=${sec.id}>
+              ${this.#toggle(sec.enabled, (on) => saveLayout(setRoomSection(layout, { enabled: [sec.id, on] })), t(`rsec.${sec.id}` as MessageKey))}
+              <span class="name ${sec.enabled ? "" : "off"}">${t(`rsec.${sec.id}` as MessageKey)}</span>
+              ${this.#moveButtons((d) => saveLayout(setRoomSection(layout, { move: [sec.id, d] })), i === 0, i === list.length - 1)}
             </div>`,
         )}
+      </div>
+    </section>`;
+  }
+
+  #renderCategories() {
+    const { t, layout, saveLayout } = this.ctx;
+    const all = CATEGORY_INFO.map((c) => c.id);
+    const list = categoryList(layout, all);
+    return html`<section>
+      <h2 class="label">${t("settings.categories")}</h2>
+      <p class="hint">${t("settings.categories_hint")}</p>
+      <div class="rows">
+        ${list.map((x, i) => {
+          const info = CATEGORY_INFO.find((c) => c.id === x.id);
+          if (!info) return nothing;
+          return html`<div class="row" data-cat=${x.id}>
+            ${this.#toggle(x.enabled, (on) => saveLayout(setCategory(layout, all, { enabled: [x.id, on] })), t(info.title))}
+            <span class="name ${x.enabled ? "" : "off"}">${t(info.title)}</span>
+            ${this.#moveButtons((d) => saveLayout(setCategory(layout, all, { move: [x.id, d] })), i === 0, i === list.length - 1)}
+          </div>`;
+        })}
       </div>
     </section>`;
   }
@@ -650,6 +711,7 @@ export class AtriumSettingsPage extends LitElement {
           ["nav", "settings.tab_nav"],
           ["pages", "settings.tab_pages"],
           ["rooms", "settings.tab_rooms"],
+          ["categories", "settings.tab_categories"],
           ["users", "settings.tab_users"],
           ["energy", "settings.tab_energy"],
           ["hidden", "settings.tab_hidden"],
@@ -688,6 +750,7 @@ export class AtriumSettingsPage extends LitElement {
         ${tab === "nav" ? html`<atrium-nav-settings .ctx=${this.ctx}></atrium-nav-settings>` : nothing}
         ${tab === "pages" ? html`<atrium-pages-settings .ctx=${this.ctx}></atrium-pages-settings>` : nothing}
         ${tab === "rooms" ? this.#renderRooms() : nothing}
+        ${tab === "categories" ? this.#renderCategories() : nothing}
         ${tab === "users" ? html`<atrium-users-settings .ctx=${this.ctx}></atrium-users-settings>` : nothing}
         ${tab === "energy" ? html`<atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>` : nothing}
         ${tab === "hidden" ? this.#renderHidden() : nothing}

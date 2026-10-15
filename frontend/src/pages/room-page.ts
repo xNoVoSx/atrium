@@ -4,7 +4,7 @@ import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
 import { adjacentRooms, areaTemperature, roomContent, rooms } from "../data/home";
-import { savedOrder } from "../data/layout";
+import { roomSectionList, savedOrder, type RoomSection } from "../data/layout";
 import { roomPageId } from "../data/pages";
 import { nameOf, withoutArea } from "../data/registry";
 import type { MessageKey, Translate } from "../i18n";
@@ -197,76 +197,9 @@ export class AtriumRoomPage extends LitElement {
           </div>
         </header>
 
-        ${
-          c.climate.length
-            ? html`<atrium-climate-module .ctx=${this.ctx} .areaId=${this.areaId}></atrium-climate-module>`
-            : nothing
-        }
-        ${
-          c.lights.length
-            ? html`<atrium-lights-module
-                .ctx=${this.ctx}
-                .areaId=${this.areaId}
-                compact
-              ></atrium-lights-module>`
-            : nothing
-        }
-        ${
-          c.devices.length
-            ? this.#section(
-                "room.devices",
-                html`<atrium-entity-list
-                  .ctx=${this.ctx}
-                  .ids=${c.devices}
-                  order-key="devices:${this.areaId}"
-                ></atrium-entity-list>`,
-              )
-            : nothing
-        }
-        ${
-          c.media.length
-            ? this.#section(
-                "room.media",
-                html`<atrium-entity-list
-                  .ctx=${this.ctx}
-                  .ids=${c.media}
-                  order-key="media:${this.areaId}"
-                ></atrium-entity-list>`,
-              )
-            : nothing
-        }
-        ${
-          room.binary.length || room.sensors.length
-            ? this.#section(
-                "room.sensors",
-                html`<div class="chips">
-                  ${repeat(
-                    room.binary,
-                    (b) => b.id,
-                    (b) =>
-                      html`<button
-                        type="button"
-                        class="chip ${b.state === "on" && ALERT_CLASSES.includes(b.deviceClass) ? "alert" : ""}"
-                        @click=${() => this.#moreInfo(b.id)}
-                      >
-                        <span class="chip-name">${b.name}</span>
-                        <span class="chip-value">${binaryLabel(t, b.deviceClass, b.state)}</span>
-                      </button>`,
-                  )}
-                  ${repeat(
-                    room.sensors,
-                    (s) => s.id,
-                    (s) =>
-                      html`<button type="button" class="chip" @click=${() => this.#moreInfo(s.id)}>
-                        <span class="chip-name">${s.name}</span>
-                        <span class="chip-value">${s.value}</span>
-                      </button>`,
-                  )}
-                </div>`,
-              )
-            : nothing
-        }
-        <atrium-widget-page .ctx=${this.ctx} .pageId=${roomPageId(this.areaId)} embedded></atrium-widget-page>
+        ${roomSectionList(this.ctx.layout)
+          .filter((sec) => sec.enabled)
+          .map((sec) => this.#renderSection(sec.id))}
         ${
           c.climate.length + c.lights.length + c.devices.length + c.media.length === 0 &&
           !room.binary.length &&
@@ -276,6 +209,85 @@ export class AtriumRoomPage extends LitElement {
         }
       </div>
     `;
+  }
+
+  #renderSection(id: RoomSection) {
+    const room = this.#room.value;
+    if (!room) return nothing;
+    const { t } = this.ctx;
+    const c = room.content;
+    switch (id) {
+      case "climate":
+        return c.climate.length
+          ? html`<atrium-climate-module .ctx=${this.ctx} .areaId=${this.areaId}></atrium-climate-module>`
+          : nothing;
+      case "lights":
+        return c.lights.length
+          ? html`<atrium-lights-module
+              .ctx=${this.ctx}
+              .areaId=${this.areaId}
+              compact
+            ></atrium-lights-module>`
+          : nothing;
+      case "devices":
+        return c.devices.length
+          ? this.#section(
+              "room.devices",
+              html`<atrium-entity-list
+                .ctx=${this.ctx}
+                .ids=${c.devices}
+                order-key="devices:${this.areaId}"
+              ></atrium-entity-list>`,
+            )
+          : nothing;
+      case "media":
+        return c.media.length
+          ? this.#section(
+              "room.media",
+              html`<atrium-entity-list
+                .ctx=${this.ctx}
+                .ids=${c.media}
+                order-key="media:${this.areaId}"
+              ></atrium-entity-list>`,
+            )
+          : nothing;
+      case "sensors":
+        return room.binary.length || room.sensors.length
+          ? this.#section(
+              "room.sensors",
+              html`<div class="chips">
+                ${repeat(
+                  room.binary,
+                  (b) => b.id,
+                  (b) =>
+                    html`<button
+                      type="button"
+                      class="chip ${b.state === "on" && ALERT_CLASSES.includes(b.deviceClass) ? "alert" : ""}"
+                      @click=${() => this.#moreInfo(b.id)}
+                    >
+                      <span class="chip-name">${b.name}</span>
+                      <span class="chip-value">${binaryLabel(t, b.deviceClass, b.state)}</span>
+                    </button>`,
+                )}
+                ${repeat(
+                  room.sensors,
+                  (s) => s.id,
+                  (s) =>
+                    html`<button type="button" class="chip" @click=${() => this.#moreInfo(s.id)}>
+                      <span class="chip-name">${s.name}</span>
+                      <span class="chip-value">${s.value}</span>
+                    </button>`,
+                )}
+              </div>`,
+            )
+          : nothing;
+      case "widgets":
+        return html`<atrium-widget-page
+          .ctx=${this.ctx}
+          .pageId=${roomPageId(this.areaId)}
+          embedded
+        ></atrium-widget-page>`;
+    }
   }
 
   #moreInfo(entityId: string): void {

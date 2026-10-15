@@ -126,6 +126,19 @@ async function main() {
     await shot(phone.page, "phone-more", false);
     await go(phone.page, "/atrium/category/homelab");
     await shot(phone.page, "phone-homelab");
+    await go(phone.page, "/atrium/settings");
+    await click(phone.page, '[data-tab="look"]');
+    await shot(phone.page, "phone-settings-look");
+    await click(phone.page, '[data-tab="nav"]');
+    await shot(phone.page, "phone-settings-nav");
+    await go(phone.page, "/atrium");
+    await phone.page.waitForTimeout(500);
+    await click(phone.page, ".edit-toggle");
+    await shot(phone.page, "phone-edit");
+    await click(phone.page, ".add-widget");
+    await shot(phone.page, "phone-picker", false);
+    await phone.page.keyboard.press("Escape");
+    await click(phone.page, ".edit-toggle");
   }
 
   const errors = [...desk.errors, ...phone.errors];

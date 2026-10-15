@@ -2,6 +2,17 @@
 
 export const appEn = {
   "nav.search": "Search",
+  "settings.tab_categories": "Categories",
+  "settings.categories": "Categories",
+  "settings.categories_hint": "Which categories exist and in which order (overview, menu, search).",
+  "settings.room_sections": "Sections on room pages",
+  "settings.room_sections_hint": "For all rooms: what a room page shows and in which order.",
+  "rsec.climate": "Heating",
+  "rsec.lights": "Lights",
+  "rsec.devices": "Devices",
+  "rsec.media": "Media",
+  "rsec.sensors": "Sensors",
+  "rsec.widgets": "Own widgets of the room",
   "settings.saver": "Screensaver on this device",
   "settings.saver_hint":
     "For wall tablets: after this time without touch a dark clock appears. Touch to wake.",
@@ -120,6 +131,18 @@ export type AppKey = keyof typeof appEn;
 
 export const appDe: Record<AppKey, string> = {
   "nav.search": "Suche",
+  "settings.tab_categories": "Kategorien",
+  "settings.categories": "Kategorien",
+  "settings.categories_hint":
+    "Welche Kategorien es gibt und in welcher Reihenfolge (Übersicht, Menü, Suche).",
+  "settings.room_sections": "Abschnitte auf Raumseiten",
+  "settings.room_sections_hint": "Für alle Räume: was eine Raumseite zeigt und in welcher Reihenfolge.",
+  "rsec.climate": "Heizung",
+  "rsec.lights": "Licht",
+  "rsec.devices": "Geräte",
+  "rsec.media": "Medien",
+  "rsec.sensors": "Sensoren",
+  "rsec.widgets": "Eigene Widgets des Raums",
   "settings.saver": "Bildschirmschoner auf diesem Gerät",
   "settings.saver_hint":
     "Für Wand-Tablets: Nach dieser Zeit ohne Berührung erscheint eine dunkle Uhr. Antippen weckt.",

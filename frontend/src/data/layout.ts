@@ -151,3 +151,72 @@ export function toggleFavorite(user: Record<string, unknown>, entityId: string):
 export function setFavoritesOrder(user: Record<string, unknown>, ids: string[]): UserSettings {
   return { ...(user as UserSettings), favorites: ids };
 }
+
+// ---- sections of room pages (shared for all rooms) ----
+
+export const ROOM_SECTIONS = ["climate", "lights", "devices", "media", "sensors", "widgets"] as const;
+export type RoomSection = (typeof ROOM_SECTIONS)[number];
+
+interface RoomSectionsLayout {
+  roomSections?: { order?: string[]; hidden?: string[] };
+}
+
+/** Room page sections in order with their on/off state. */
+export function roomSectionList(
+  raw: Record<string, unknown> | undefined,
+): Array<{ id: RoomSection; enabled: boolean }> {
+  const cfg = (raw as RoomSectionsLayout | undefined)?.roomSections ?? {};
+  const known = (id: string): id is RoomSection => (ROOM_SECTIONS as readonly string[]).includes(id);
+  const ordered = (cfg.order ?? []).filter(known);
+  const rest = ROOM_SECTIONS.filter((id) => !ordered.includes(id));
+  const hidden = new Set(cfg.hidden ?? []);
+  return [...ordered, ...rest].map((id) => ({ id, enabled: !hidden.has(id) }));
+}
+
+export function setRoomSection(
+  raw: Record<string, unknown>,
+  change: { move?: [RoomSection, -1 | 1]; enabled?: [RoomSection, boolean] },
+): Record<string, unknown> {
+  const list = roomSectionList(raw);
+  let order = list.map((x) => x.id as string);
+  const hidden = new Set(list.filter((x) => !x.enabled).map((x) => x.id as string));
+  if (change.move) order = moveBy(order, change.move[0], change.move[1]);
+  if (change.enabled) {
+    if (change.enabled[1]) hidden.delete(change.enabled[0]);
+    else hidden.add(change.enabled[0]);
+  }
+  return { ...raw, roomSections: { order, hidden: [...hidden] } };
+}
+
+// ---- categories (order and hiding) ----
+
+interface CategoriesLayout {
+  categories?: { order?: string[]; hidden?: string[] };
+}
+
+export function categoryList(
+  raw: Record<string, unknown> | undefined,
+  all: readonly string[],
+): Array<{ id: string; enabled: boolean }> {
+  const cfg = (raw as CategoriesLayout | undefined)?.categories ?? {};
+  const ordered = (cfg.order ?? []).filter((id) => all.includes(id));
+  const rest = all.filter((id) => !ordered.includes(id));
+  const hidden = new Set(cfg.hidden ?? []);
+  return [...ordered, ...rest].map((id) => ({ id, enabled: !hidden.has(id) }));
+}
+
+export function setCategory(
+  raw: Record<string, unknown>,
+  all: readonly string[],
+  change: { move?: [string, -1 | 1]; enabled?: [string, boolean] },
+): Record<string, unknown> {
+  const list = categoryList(raw, all);
+  let order = list.map((x) => x.id);
+  const hidden = new Set(list.filter((x) => !x.enabled).map((x) => x.id));
+  if (change.move) order = moveBy(order, change.move[0], change.move[1]);
+  if (change.enabled) {
+    if (change.enabled[1]) hidden.delete(change.enabled[0]);
+    else hidden.add(change.enabled[0]);
+  }
+  return { ...raw, categories: { order, hidden: [...hidden] } };
+}

@@ -217,3 +217,36 @@ describe("adapters", () => {
     expect(usageTone(95)).toBe("bad");
   });
 });
+
+describe("room sections and categories", () => {
+  it("orders and hides room page sections", async () => {
+    const { roomSectionList, setRoomSection } = await import("../src/data/layout");
+    expect(roomSectionList({}).map((s) => s.id)).toEqual([
+      "climate",
+      "lights",
+      "devices",
+      "media",
+      "sensors",
+      "widgets",
+    ]);
+    let layout = setRoomSection({}, { move: ["lights", -1] });
+    layout = setRoomSection(layout, { enabled: ["sensors", false] });
+    const list = roomSectionList(layout);
+    expect(list.slice(0, 2).map((s) => s.id)).toEqual(["lights", "climate"]);
+    expect(list.find((s) => s.id === "sensors")?.enabled).toBe(false);
+  });
+
+  it("orders and hides categories, new ones appear", async () => {
+    const { categoryList, setCategory } = await import("../src/data/layout");
+    const all = ["light", "climate", "energy"];
+    const layout = setCategory(setCategory({}, all, { move: ["energy", -1] }), all, {
+      enabled: ["light", false],
+    });
+    expect(categoryList(layout, [...all, "homelab"]).map((c) => `${c.id}:${c.enabled}`)).toEqual([
+      "light:false",
+      "energy:true",
+      "climate:true",
+      "homelab:true",
+    ]);
+  });
+});

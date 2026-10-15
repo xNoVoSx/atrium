@@ -6,7 +6,14 @@ import { EntityStore } from "./data/entity-store";
 import { isAutoVisible } from "./data/registry";
 import { categoryInfo } from "./data/categories";
 import { rooms } from "./data/home";
-import { hiddenAreas, hiddenEntities, savedOrder, setEntityHidden, toggleFavorite } from "./data/layout";
+import {
+  categoryList,
+  hiddenAreas,
+  hiddenEntities,
+  savedOrder,
+  setEntityHidden,
+  toggleFavorite,
+} from "./data/layout";
 import { userLevel } from "./data/levels";
 import { navMatches, navRoute, railMode, visibleNav, CATEGORIES, type NavItem } from "./data/nav";
 import { page as pageConfig } from "./data/pages";
@@ -493,7 +500,7 @@ export class AtriumPanel extends LitElement {
             }
           break;
         case "all-categories":
-          for (const id of CATEGORIES) {
+          for (const { id } of categoryList(this._layout, CATEGORIES).filter((c) => c.enabled)) {
             const info = categoryInfo(id);
             if (!info || (info.minLevel === "expert" && ctx.level !== "expert")) continue;
             const catRoute: PageRoute = { page: "category", category: id };
@@ -787,8 +794,9 @@ export class AtriumPanel extends LitElement {
         justify-content: center;
         gap: 4px;
         min-width: 0;
-        padding: 0 2px;
-        font-size: 11px;
+        padding: 0 1px;
+        font-size: 10.5px;
+        letter-spacing: -0.01em;
       }
       nav.bottom span {
         max-width: 100%;

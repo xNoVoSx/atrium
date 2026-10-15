@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import type { PanelContext } from "../context";
 import { CATEGORY_INFO } from "../data/categories";
 import { rooms } from "../data/home";
+import { categoryList } from "../data/layout";
 import { levelAllows } from "../data/levels";
 import { customPages } from "../data/pages";
 import { isAutoVisible, nameOf } from "../data/registry";
@@ -70,6 +71,14 @@ export class AtriumSearch extends LitElement {
     const hass = store.hass;
     if (!hass) return [];
     const q = norm(this._q.trim());
+    const categoryHidden = new Set(
+      categoryList(
+        this.ctx.layout,
+        CATEGORY_INFO.map((c) => c.id),
+      )
+        .filter((c) => !c.enabled)
+        .map((c) => c.id),
+    );
     const match = (...texts: string[]) => !q || texts.some((x) => norm(x).includes(q));
     const fixed: Hit[] = [
       {
@@ -96,13 +105,15 @@ export class AtriumSearch extends LitElement {
     ];
     const pages: Hit[] = [
       ...fixed,
-      ...CATEGORY_INFO.filter((c) => levelAllows(level, c.minLevel)).map((c) => ({
-        key: `c:${c.id}`,
-        label: t(c.title),
-        sub: t("search.category"),
-        icon: c.icon,
-        route: { page: "category", category: c.id } as PageRoute,
-      })),
+      ...CATEGORY_INFO.filter((c) => levelAllows(level, c.minLevel) && !categoryHidden.has(c.id)).map(
+        (c) => ({
+          key: `c:${c.id}`,
+          label: t(c.title),
+          sub: t("search.category"),
+          icon: c.icon,
+          route: { page: "category", category: c.id } as PageRoute,
+        }),
+      ),
       ...customPages(this.ctx.layout)
         .filter((p) => levelAllows(level, p.minLevel))
         .map((p) => ({
