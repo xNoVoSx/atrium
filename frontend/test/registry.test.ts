@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { areaIdOf, brightnessPct, groupByArea, isAutoVisible, isDimmable } from "../src/data/registry";
+import {
+  areaIdOf,
+  brightnessPct,
+  groupByArea,
+  isAutoVisible,
+  isDimmable,
+  withoutArea,
+} from "../src/data/registry";
 import { fakeHass, state } from "./fixtures";
 
 describe("isAutoVisible", () => {
@@ -73,5 +80,15 @@ describe("light helpers", () => {
     expect(brightnessPct(state("light.a", "on", { brightness: 255 }))).toBe(100);
     expect(brightnessPct(state("light.a", "on", { brightness: 128 }))).toBe(50);
     expect(brightnessPct(state("light.a", "off", { brightness: 128 }))).toBeNull();
+  });
+});
+
+describe("withoutArea", () => {
+  it("drops a leading area name like Home Assistant does", () => {
+    expect(withoutArea("Büro Presence Belegung", "Büro")).toBe("Presence Belegung");
+    expect(withoutArea("büro anwesenheit", "Büro")).toBe("Anwesenheit");
+    expect(withoutArea("Lampe Büro", "Büro")).toBe("Lampe Büro");
+    expect(withoutArea("Büro", "Büro")).toBe("Büro");
+    expect(withoutArea("Flur", undefined)).toBe("Flur");
   });
 });

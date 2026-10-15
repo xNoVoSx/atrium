@@ -2,12 +2,11 @@ import { LitElement, css, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
+import { ClimateStepper } from "../data/climate-stepper";
 import { EntityController, SelectorController } from "../data/entity-store";
-import { climateZones, stepTarget, zoneLabel } from "../data/home";
+import { climateZones, zoneLabel } from "../data/home";
 import { ICONS, shared } from "../theme/shared";
 import { formatTemperature } from "../util/format";
-
-const SEND_DELAY_MS = 700;
 
 /**
  * Heating at a glance: one zone large with − / +, the others as chips.
@@ -19,14 +18,12 @@ export class AtriumClimateModule extends LitElement {
     ctx: { attribute: false },
     areaId: { attribute: "area-id" },
     _selected: { state: true },
-    _pending: { state: true },
   };
 
   declare ctx: PanelContext;
   /** Limit to one area (room page). */
   declare areaId: string | undefined;
   declare _selected: string | undefined;
-  declare _pending: number | null;
 
   #zones = new SelectorController(
     this,
@@ -41,12 +38,7 @@ export class AtriumClimateModule extends LitElement {
     },
   );
   #zone = new EntityController(this, () => this.ctx?.store);
-  #timer: ReturnType<typeof setTimeout> | undefined;
-
-  constructor() {
-    super();
-    this._pending = null;
-  }
+  #stepper = new ClimateStepper(this, () => this.ctx?.store.hass);
 
   #areaOf(entityId: string): string | null {
     const hass = this.ctx.store.hass;
@@ -63,42 +55,18 @@ export class AtriumClimateModule extends LitElement {
       this._selected = (heating ?? zones[0])?.id;
     }
     this.#zone.track(this._selected);
+    this.#stepper.entityId = this._selected;
   }
 
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.#flush();
-  }
-
-  #select(id: string): void {
-    this.#flush();
-    this._selected = id;
-  }
-
-  #step(direction: 1 | -1): void {
-    const s = this.#zone.state;
-    if (!s) return;
-    const base = this._pending ?? Number(s.attributes.temperature ?? s.attributes.current_temperature ?? 20);
-    this._pending = stepTarget(s, base, direction);
-    clearTimeout(this.#timer);
-    this.#timer = setTimeout(() => this.#flush(), SEND_DELAY_MS);
-  }
-
-  #flush(): void {
-    clearTimeout(this.#timer);
-    const hass = this.ctx?.store.hass;
-    const zone = this._selected;
-    const target = this._pending;
-    if (!hass || !zone || target === null) return;
-    const s = hass.states[zone];
-    const data: Record<string, unknown> = { entity_id: zone, temperature: target };
-    // A thermostat that is off would ignore the new target; switch it to heating.
-    if (s?.state === "off" && (s.attributes.hvac_modes as string[] | undefined)?.includes("heat")) {
-      data.hvac_mode = "heat";
-    }
-    void hass.callService("climate", "set_temperature", data).finally(() => {
-      if (this._pending === target) this._pending = null;
-    });
+  #openControl(): void {
+    if (!this._selected) return;
+    this.dispatchEvent(
+      new CustomEvent("atrium-more-info", {
+        detail: { entityId: this._selected },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   protected override render() {
@@ -106,8 +74,8 @@ export class AtriumClimateModule extends LitElement {
     const s = this.#zone.state;
     if (!zones.length || !s) return nothing;
     const { t, locale } = this.ctx;
-    const off = s.state === "off" && this._pending === null;
-    const target = this._pending ?? Number(s.attributes.temperature);
+    const off = s.state === "off" && this.#stepper.pending === null;
+    const target = this.#stepper.pending ?? Number(s.attributes.temperature);
     const current = Number(s.attributes.current_temperature);
     const heating = s.attributes.hvac_action === "heating";
     const label = zones.find((z) => z.id === s.entity_id)?.label ?? "";
@@ -120,21 +88,21 @@ export class AtriumClimateModule extends LitElement {
           </div>
         </div>
         <div class="main">
-          <div>
-            <div class="target" aria-live="polite">
+          <button class="open" type="button" title=${t("climate.more")} @click=${() => this.#openControl()}>
+            <span class="target" aria-live="polite">
               ${off ? t("climate.off") : formatTemperature(Number.isNaN(target) ? null : target, locale)}
-            </div>
-            <div class="sub">
+            </span>
+            <span class="sub">
               ${t("climate.target")} · ${t("climate.current")}
               ${formatTemperature(Number.isNaN(current) ? null : current, locale)}
-            </div>
-          </div>
+            </span>
+          </button>
           <div class="buttons">
             <button
               type="button"
               class="minus"
               aria-label=${t("climate.colder")}
-              @click=${() => this.#step(-1)}
+              @click=${() => this.#stepper.step(-1)}
             >
               ${icon(ICONS.minus, 22, 2.2)}
             </button>
@@ -142,7 +110,7 @@ export class AtriumClimateModule extends LitElement {
               type="button"
               class="plus"
               aria-label=${t("climate.warmer")}
-              @click=${() => this.#step(1)}
+              @click=${() => this.#stepper.step(1)}
             >
               ${icon(ICONS.plus, 22, 2.2)}
             </button>
@@ -159,7 +127,7 @@ export class AtriumClimateModule extends LitElement {
                       type="button"
                       role="tab"
                       aria-selected=${String(z.id === s.entity_id)}
-                      @click=${() => this.#select(z.id)}
+                      @click=${() => (this._selected = z.id)}
                     >
                       <span class="zone-name">${z.label}</span>
                       <span class="zone-temp">${formatTemperature(z.temp, locale)}</span>
@@ -214,6 +182,17 @@ export class AtriumClimateModule extends LitElement {
         align-items: flex-end;
         justify-content: space-between;
         gap: 12px;
+      }
+      .open {
+        all: unset;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--a-radius);
+      }
+      .open:focus-visible {
+        outline: 2px solid var(--a-ocher);
+        outline-offset: 4px;
       }
       .target {
         font-size: 72px;

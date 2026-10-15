@@ -1,7 +1,10 @@
 // Entry point: registers Atrium's custom elements.
 
 import { AtriumPanel } from "./atrium-panel";
-import { AtriumLightControl } from "./components/light-control";
+import { AtriumClimateBody } from "./components/climate-body";
+import { AtriumEntityTile } from "./components/entity-tile";
+import { AtriumLightBody } from "./components/light-body";
+import { AtriumSheet } from "./components/sheet";
 import { AtriumLightTile } from "./components/light-tile";
 import { AtriumClimateModule } from "./modules/climate-module";
 import { AtriumHeaderModule } from "./modules/header-module";
@@ -21,7 +24,10 @@ import {
 
 export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-light-tile", AtriumLightTile],
-  ["atrium-light-control", AtriumLightControl],
+  ["atrium-entity-tile", AtriumEntityTile],
+  ["atrium-sheet", AtriumSheet],
+  ["atrium-light-body", AtriumLightBody],
+  ["atrium-climate-body", AtriumClimateBody],
   ["atrium-header-module", AtriumHeaderModule],
   ["atrium-status-module", AtriumStatusModule],
   ["atrium-climate-module", AtriumClimateModule],

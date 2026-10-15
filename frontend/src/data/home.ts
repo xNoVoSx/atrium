@@ -249,3 +249,87 @@ export function daysUntil(date: string, today = localDate(new Date())): number {
   };
   return Math.round((utc(date) - utc(today)) / 86400000);
 }
+
+// ---- room content ----
+
+export interface RoomContent {
+  climate: string[];
+  lights: string[];
+  /** Things to switch: switches, fans, covers, locks, buttons, scripts. */
+  devices: string[];
+  media: string[];
+  /** Doors, windows, motion and other on/off sensors. */
+  binary: string[];
+  /** Readings worth showing: temperature, humidity, air, light, power. */
+  sensors: string[];
+}
+
+const DEVICE_DOMAINS = [
+  "switch",
+  "input_boolean",
+  "fan",
+  "cover",
+  "lock",
+  "button",
+  "script",
+  "vacuum",
+  "valve",
+];
+const BINARY_CLASSES = [
+  "door",
+  "garage_door",
+  "window",
+  "opening",
+  "motion",
+  "occupancy",
+  "presence",
+  "moisture",
+  "smoke",
+  "gas",
+  "vibration",
+];
+const SENSOR_CLASSES = [
+  "temperature",
+  "humidity",
+  "illuminance",
+  "carbon_dioxide",
+  "pm25",
+  "pm10",
+  "volatile_organic_compounds",
+  "power",
+  "pressure",
+  "moisture",
+];
+
+/** Everything of a room, sorted into the sections of the room page. */
+export function roomContent(hass: HomeAssistant, areaId: string): RoomContent {
+  const content: RoomContent = { climate: [], lights: [], devices: [], media: [], binary: [], sensors: [] };
+  for (const id of areaEntities(hass, areaId).sort(byAreaThenName(hass))) {
+    const s = hass.states[id];
+    if (!s) continue;
+    const domain = id.split(".")[0] ?? "";
+    const deviceClass = String(s.attributes.device_class ?? "");
+    if (domain === "climate") content.climate.push(id);
+    else if (domain === "light") content.lights.push(id);
+    else if (domain === "media_player") content.media.push(id);
+    else if (DEVICE_DOMAINS.includes(domain)) content.devices.push(id);
+    else if (domain === "binary_sensor" && BINARY_CLASSES.includes(deviceClass)) content.binary.push(id);
+    else if (domain === "sensor" && SENSOR_CLASSES.includes(deviceClass) && numeric(s) !== null)
+      content.sensors.push(id);
+  }
+  return content;
+}
+
+/** Neighbours in the rooms list, wrapping around. */
+export function adjacentRooms(
+  hass: HomeAssistant,
+  areaId: string,
+): { prev: string | null; next: string | null } {
+  const list = rooms(hass).map((r) => r.areaId);
+  const i = list.indexOf(areaId);
+  if (i < 0 || list.length < 2) return { prev: null, next: null };
+  return {
+    prev: list[(i - 1 + list.length) % list.length] ?? null,
+    next: list[(i + 1) % list.length] ?? null,
+  };
+}

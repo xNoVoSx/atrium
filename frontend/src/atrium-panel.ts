@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { icon } from "./components/icon";
-import type { AtriumLightControl } from "./components/light-control";
+import type { AtriumSheet } from "./components/sheet";
 import type { PanelContext } from "./context";
 import { EntityStore } from "./data/entity-store";
 import { isAutoVisible } from "./data/registry";
@@ -46,6 +46,7 @@ export class AtriumPanel extends LitElement {
     _themePref: { state: true },
     _layout: { state: true },
     _pull: { state: true },
+    _controlId: { state: true },
   };
 
   declare narrow: boolean;
@@ -54,6 +55,8 @@ export class AtriumPanel extends LitElement {
   declare _themePref: ThemePreference;
   declare _layout: Record<string, unknown>;
   declare _pull: number;
+  /** Entity shown in the sheet. */
+  declare _controlId: string | null;
 
   readonly store = new EntityStore();
   #hass: HomeAssistant | undefined;
@@ -73,6 +76,7 @@ export class AtriumPanel extends LitElement {
     this._themePref = readThemePreference();
     this._layout = {};
     this._pull = 0;
+    this._controlId = null;
   }
 
   get hass(): HomeAssistant | undefined {
@@ -147,8 +151,8 @@ export class AtriumPanel extends LitElement {
     }
   }
 
-  #control(): AtriumLightControl | null {
-    return this.renderRoot?.querySelector("atrium-light-control") ?? null;
+  #control(): AtriumSheet | null {
+    return this.renderRoot?.querySelector("atrium-sheet") ?? null;
   }
 
   #navigate = (route: PageRoute) => {
@@ -160,8 +164,37 @@ export class AtriumPanel extends LitElement {
     void this.hass?.callService("light", "toggle", { entity_id: ev.detail.entityId });
   }
 
+  /** Own controls for lights and heating; everything else opens Home Assistant's dialog. */
   #onMoreInfo(ev: CustomEvent<{ entityId: string }>): void {
-    this.#control()?.show(ev.detail.entityId);
+    const id = ev.detail.entityId;
+    if (id.startsWith("light.") || id.startsWith("climate.")) {
+      this._controlId = id;
+      void this.updateComplete.then(() => this.#control()?.show());
+    } else {
+      this.dispatchEvent(
+        new CustomEvent("hass-more-info", { detail: { entityId: id }, bubbles: true, composed: true }),
+      );
+    }
+  }
+
+  #renderControl(ctx: PanelContext) {
+    const id = this._controlId;
+    const body = !id
+      ? nothing
+      : id.startsWith("climate.")
+        ? html`<atrium-climate-body
+            .store=${this.store}
+            .t=${ctx.t}
+            .locale=${ctx.locale}
+            .entityId=${id}
+          ></atrium-climate-body>`
+        : html`<atrium-light-body .store=${this.store} .t=${ctx.t} .entityId=${id}></atrium-light-body>`;
+    return html`<atrium-sheet
+      .mode=${this.narrow ? "sheet" : "dialog"}
+      .label=${id ? ((this.store.state(id)?.attributes.friendly_name as string | undefined) ?? id) : ""}
+      @atrium-close-sheet=${() => this.#control()?.close()}
+      >${body}</atrium-sheet
+    >`;
   }
 
   #report(): void {
@@ -281,11 +314,7 @@ export class AtriumPanel extends LitElement {
           ${this.#renderPage(route, ctx)}
         </main>
       </div>
-      <atrium-light-control
-        .store=${this.store}
-        .t=${ctx.t}
-        .mode=${this.narrow ? "sheet" : "dialog"}
-      ></atrium-light-control>
+      ${this.#renderControl(ctx)}
     `;
   }
 

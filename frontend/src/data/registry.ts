@@ -76,3 +76,13 @@ export function nameOf(hass: HomeAssistant, entityId: string): string {
   const s = hass.states[entityId];
   return s ? friendlyName(s) : entityId;
 }
+
+/** Name without a leading area name ("Büro Presence" in Büro -> "Presence"), like HA's own UI. */
+export function withoutArea(name: string, areaName: string | undefined): string {
+  if (!areaName) return name;
+  const lower = name.toLowerCase();
+  const prefix = areaName.toLowerCase();
+  if (!lower.startsWith(prefix) || name.length <= areaName.length) return name;
+  const rest = name.slice(areaName.length).replace(/^[\s:·-]+/, "");
+  return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : name;
+}

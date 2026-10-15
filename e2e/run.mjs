@@ -21,7 +21,9 @@ import {
   login,
   plantStyle,
   readPanel,
+  openClimateControl,
   storedTokens,
+  swipe,
   tileButton,
   waitFor,
 } from "./lib.mjs";
@@ -80,12 +82,15 @@ async function main() {
   const appPage = await app.newPage();
   const deskPage = await desk.newPage();
   const errors = { app: [], desktop: [] };
+  // While the test reloads the config entry on purpose, Home Assistant briefly
+  // removes the panel and its own frontend logs errors; those are not Atrium's.
+  let expectingReload = false;
   for (const [name, page] of [
     ["app", appPage],
     ["desktop", deskPage],
   ]) {
-    page.on("console", (m) => m.type() === "error" && errors[name].push(m.text()));
-    page.on("pageerror", (e) => errors[name].push(String(e)));
+    page.on("console", (m) => m.type() === "error" && !expectingReload && errors[name].push(m.text()));
+    page.on("pageerror", (e) => !expectingReload && errors[name].push(String(e)));
   }
 
   const t0 = Date.now();
@@ -136,15 +141,15 @@ async function main() {
 
   // Live sync: switch on the desktop, measure until the app shows it.
   const target = before.state === "on" ? "off" : "on";
-  const rendersBefore = (await readPanel(appPage)).tiles;
+  const rendersBefore = (await readPanel(appPage))?.tiles;
   await (await tileButton(deskPage, cfg.testLight)).click();
   const stateIs = (page) => async () =>
-    (await readPanel(page)).tiles.find((t) => t.entityId === cfg.testLight)?.state === target;
+    (await readPanel(page))?.tiles.find((t) => t.entityId === cfg.testLight)?.state === target;
   const deskMs = await waitFor(stateIs(deskPage), { timeout: 5000 });
   const appMs = await waitFor(stateIs(appPage), { timeout: 5000 });
   check("desktop tap switches the light", deskMs != null, `${deskMs} ms`);
   check("app shows the change live", appMs != null, `+${appMs} ms`);
-  const rerendered = (await readPanel(appPage)).tiles
+  const rerendered = (await readPanel(appPage))?.tiles
     .filter((t) => t.renders !== rendersBefore.find((b) => b.entityId === t.entityId)?.renders)
     .map((t) => t.entityId);
   check("only the changed tile re-rendered", rerendered.every((id) => id === cfg.testLight), rerendered.join(", "));
@@ -165,7 +170,7 @@ async function main() {
   await appPage.screenshot({ path: `${SHOTS}app-control.png` });
   await appPage.keyboard.press("Escape");
   await appPage.waitForTimeout(400);
-  check("app: Escape closes the control", !(await readPanel(appPage)).control.open);
+  check("app: Escape closes the control", !(await readPanel(appPage))?.control.open);
 
   // Desktop: right click opens a centred dialog, every time.
   for (const round of [1, 2]) {
@@ -192,7 +197,7 @@ async function main() {
   if (onOff) {
     await (await tileButton(deskPage, onOff.entity_id)).click({ button: "right" });
     await deskPage.waitForTimeout(400);
-    check("on/off light: no brightness slider", (await readPanel(deskPage)).control.dimHidden === true, onOff.entity_id);
+    check("on/off light: no brightness slider", (await readPanel(deskPage))?.control.dimHidden === true, onOff.entity_id);
     await deskPage.keyboard.press("Escape");
     await deskPage.waitForTimeout(400);
   }
@@ -233,15 +238,61 @@ async function main() {
   });
   const onRoom = await waitFor(async () => (await readPanel(appPage))?.page === "atrium-room-page", { timeout: 5000 });
   check("rooms -> room page", onRoom != null && appPage.url().endsWith(roomHref), roomHref);
+  await appPage.waitForTimeout(400);
   await appPage.screenshot({ path: `${SHOTS}app-room.png`, fullPage: true });
+
+  // Swipe left = next room, swipe right = back.
+  const firstRoom = (await readPanel(appPage))?.room;
+  await swipe(appPage, { x: 330, y: 200 }, { x: 60, y: 210 });
+  const swiped = await waitFor(async () => {
+    const r = (await readPanel(appPage))?.room;
+    return r && r !== firstRoom;
+  }, { timeout: 3000 });
+  check("swipe left opens the next room", swiped != null, (await readPanel(appPage))?.room);
+  await swipe(appPage, { x: 60, y: 200 }, { x: 330, y: 205 });
+  const back = await waitFor(async () => (await readPanel(appPage))?.room === firstRoom, { timeout: 3000 });
+  check("swipe right goes back", back != null);
+  await swipe(appPage, { x: 200, y: 700 }, { x: 210, y: 300 });
+  await appPage.waitForTimeout(300);
+  check("vertical swipe keeps the room", (await readPanel(appPage))?.room === firstRoom);
   await clickNav(appPage, "home");
   check("back to home", (await waitFor(async () => (await readPanel(appPage))?.page === "atrium-home-page")) != null);
+
+  // Desktop: arrow keys change rooms; the heating number opens the heating control.
+  await clickNav(deskPage, "rooms");
+  await waitFor(async () => (await readPanel(deskPage))?.page === "atrium-rooms-page");
+  await deskPage.evaluate(() => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    deep(document, "atrium-rooms-module").shadowRoot.querySelector("a").click();
+  });
+  await waitFor(async () => (await readPanel(deskPage))?.page === "atrium-room-page");
+  const deskRoom = (await readPanel(deskPage))?.room;
+  await deskPage.keyboard.press("ArrowRight");
+  const keyed = await waitFor(async () => (await readPanel(deskPage))?.room !== deskRoom, { timeout: 3000 });
+  check("desktop: arrow key opens the next room", keyed != null);
+  await clickNav(deskPage, "home");
+  await waitFor(async () => (await readPanel(deskPage))?.page === "atrium-home-page");
+  if (await openClimateControl(deskPage)) {
+    await deskPage.waitForTimeout(400);
+    const c = (await readPanel(deskPage))?.control;
+    check("heating number opens the heating control", c.open && c.body === "atrium-climate-body", c.body);
+    await deskPage.screenshot({ path: `${SHOTS}desktop-climate.png` });
+    await deskPage.keyboard.press("Escape");
+    await deskPage.waitForTimeout(400);
+  }
 
   // Reloading the entry with an unchanged bundle must not reload open pages.
   await appPage.evaluate(() => (window.__e2eMarker = true));
   const [entry] = await adminRest(cfg, "config/config_entries/entry?domain=atrium");
+  expectingReload = true;
   await adminRest(cfg, `config/config_entries/entry/${entry.entry_id}/reload`, {});
   await appPage.waitForTimeout(2500);
+  expectingReload = false;
   check("unchanged bundle: open pages stay", await appPage.evaluate(() => window.__e2eMarker === true));
 
   // Restore the test light.
@@ -250,10 +301,11 @@ async function main() {
   } else {
     await adminRest(cfg, "services/light/turn_off", { entity_id: cfg.testLight });
   }
-  const restored = await waitFor(
-    async () => (await readPanel(appPage)).tiles.find((t) => t.entityId === cfg.testLight)?.state === before.state,
-    { timeout: 5000 },
-  );
+  // Checked on the server: the pages may be rebuilding after the entry reload above.
+  const restored = await waitFor(async () => (await adminRest(cfg, `states/${cfg.testLight}`)).state === before.state, {
+    timeout: 10000,
+    interval: 250,
+  });
   check("test light restored", restored != null, before.state);
 
   for (const [name, list] of Object.entries(errors)) {

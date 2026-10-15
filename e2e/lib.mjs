@@ -176,7 +176,7 @@ export const readPanel = (page) =>
       state: t.getAttribute("state"),
       renders: t.renderCount,
     }));
-    const control = panel.shadowRoot.querySelector("atrium-light-control");
+    const control = panel.shadowRoot.querySelector("atrium-sheet");
     const surface = control?.shadowRoot?.querySelector(".surface");
     if (!page?.shadowRoot || !surface) return null; // not rendered yet
     const rect = surface.getBoundingClientRect();
@@ -190,6 +190,7 @@ export const readPanel = (page) =>
       theme: panel.getAttribute("theme"),
       narrow: panel.hasAttribute("narrow"),
       page: page.localName,
+      room: page.localName === "atrium-room-page" ? page.areaId : null,
       menuShown: Boolean(panel.shadowRoot.querySelector('nav [data-nav="menu"]')),
       nav: panel.shadowRoot.querySelector("nav")?.className,
       // Labels in the navigation must not run into each other or be cut off.
@@ -199,7 +200,8 @@ export const readPanel = (page) =>
         open: control.hasAttribute("open"),
         mode: control.getAttribute("mode"),
         visibility: getComputedStyle(surface).visibility,
-        dimHidden: control.shadowRoot.querySelector(".dim")?.hidden ?? null,
+        body: control.firstElementChild?.localName ?? null,
+        dimHidden: panel.shadowRoot.querySelector("atrium-light-body")?.shadowRoot?.querySelector(".dim")?.hidden ?? null,
         rect: { top: rect.top, bottom: rect.bottom },
       },
       viewport: { w: innerWidth, h: innerHeight },
@@ -323,3 +325,31 @@ export async function waitFor(fn, { timeout = 10000, interval = 20 } = {}) {
   }
   return null;
 }
+
+/** A real touch swipe through the DevTools protocol (Playwright has no swipe). */
+export async function swipe(page, from, to, steps = 8) {
+  const cdp = await page.context().newCDPSession(page);
+  const point = (p) => [{ x: p.x, y: p.y }];
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(from) });
+  for (let i = 1; i <= steps; i++) {
+    const p = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(p) });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/** Click the big target number of the first heating module on the page. */
+export const openClimateControl = (page) =>
+  page.evaluate((findPanel) => {
+    const deep = (root, sel) => {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) { const x = deep(el.shadowRoot, sel); if (x) return x; }
+      return null;
+    };
+    const module = deep(eval(findPanel).shadowRoot, "atrium-climate-module");
+    const button = module?.shadowRoot.querySelector("button.open");
+    button?.click();
+    return Boolean(button);
+  }, FIND_PANEL);

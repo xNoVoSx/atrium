@@ -9,6 +9,8 @@ import {
   stepTarget,
   zoneLabel,
   wastePickups,
+  roomContent,
+  adjacentRooms,
   daysUntil,
 } from "../src/data/home";
 import { homeModules } from "../src/data/layout";
@@ -168,5 +170,48 @@ describe("waste collection", () => {
   it("counts days in local dates", () => {
     expect(daysUntil("2026-10-16", "2026-10-15")).toBe(1);
     expect(daysUntil("2026-11-01", "2026-10-15")).toBe(17);
+  });
+});
+
+describe("room content", () => {
+  const hass = withStates(
+    {
+      "climate.office": state("climate.office", "heat", {}),
+      "switch.office_plug": state("switch.office_plug", "on", {}),
+      "media_player.office": state("media_player.office", "idle", {}),
+      "binary_sensor.office_window": state("binary_sensor.office_window", "off", { device_class: "window" }),
+      "binary_sensor.office_update": state("binary_sensor.office_update", "off", { device_class: "update" }),
+      "sensor.office_temp": state("sensor.office_temp", "21.2", { device_class: "temperature" }),
+      "sensor.office_signal": state("sensor.office_signal", "-60", { device_class: "signal_strength" }),
+      "sensor.office_broken": state("sensor.office_broken", "unavailable", { device_class: "humidity" }),
+    },
+    Object.fromEntries(
+      [
+        "climate.office",
+        "switch.office_plug",
+        "media_player.office",
+        "binary_sensor.office_window",
+        "binary_sensor.office_update",
+        "sensor.office_temp",
+        "sensor.office_signal",
+        "sensor.office_broken",
+      ].map((id) => [id, { entity_id: id, labels: [], area_id: "office" }]),
+    ),
+  );
+
+  it("sorts a room into sections and leaves out noise", () => {
+    expect(roomContent(hass, "office")).toEqual({
+      climate: ["climate.office"],
+      lights: ["light.group"],
+      devices: ["switch.office_plug"],
+      media: ["media_player.office"],
+      binary: ["binary_sensor.office_window"],
+      sensors: ["sensor.office_temp"],
+    });
+  });
+
+  it("finds neighbouring rooms, wrapping around", () => {
+    expect(adjacentRooms(hass, "hall")).toEqual({ prev: "office", next: "office" });
+    expect(adjacentRooms(hass, "nowhere")).toEqual({ prev: null, next: null });
   });
 });
