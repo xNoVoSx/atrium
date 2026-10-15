@@ -9,6 +9,7 @@ import { AtriumLightsModule } from "./modules/lights-module";
 import { AtriumRoomsModule } from "./modules/rooms-module";
 import { AtriumScenesModule } from "./modules/scenes-module";
 import { AtriumStatusModule } from "./modules/status-module";
+import { AtriumWasteModule } from "./modules/waste-module";
 import { AtriumHomePage } from "./pages/home-page";
 import { AtriumRoomPage } from "./pages/room-page";
 import {
@@ -26,6 +27,7 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-climate-module", AtriumClimateModule],
   ["atrium-lights-module", AtriumLightsModule],
   ["atrium-scenes-module", AtriumScenesModule],
+  ["atrium-waste-module", AtriumWasteModule],
   ["atrium-rooms-module", AtriumRoomsModule],
   ["atrium-home-page", AtriumHomePage],
   ["atrium-rooms-page", AtriumRoomsPage],

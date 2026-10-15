@@ -22,6 +22,8 @@ export class AtriumHomePage extends LitElement {
         return html`<atrium-lights-module class="b" .ctx=${ctx}></atrium-lights-module>`;
       case "scenes":
         return html`<atrium-scenes-module class="a" .ctx=${ctx}></atrium-scenes-module>`;
+      case "waste":
+        return html`<atrium-waste-module class="a" .ctx=${ctx}></atrium-waste-module>`;
       case "rooms":
         return html`<atrium-rooms-module class="b" .ctx=${ctx}></atrium-rooms-module>`;
     }

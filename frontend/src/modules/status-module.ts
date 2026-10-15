@@ -3,7 +3,7 @@ import { repeat } from "lit/directives/repeat.js";
 import { icon } from "../components/icon";
 import type { PanelContext } from "../context";
 import { SelectorController } from "../data/entity-store";
-import { lowBatteries, openItems } from "../data/home";
+import { daysUntil, localDate, lowBatteries, openItems, wastePickups } from "../data/home";
 import { nameOf } from "../data/registry";
 import { ICONS, shared } from "../theme/shared";
 import { formatSince } from "../util/format";
@@ -22,6 +22,11 @@ export class AtriumStatusModule extends LitElement {
         ...o,
         name: nameOf(hass, o.entityId),
       })),
+      // Reminder the day before a pickup, so the bins go out in time.
+      pickup:
+        wastePickups(hass, localDate(new Date())).find(
+          (p) => daysUntil(p.date, localDate(new Date())) === 1,
+        ) ?? null,
       batteries: lowBatteries(hass).map((id) => ({
         id,
         name: nameOf(hass, id),
@@ -42,7 +47,7 @@ export class AtriumStatusModule extends LitElement {
 
   protected override render() {
     const status = this.#status.value;
-    if (!status || (!status.open.length && !status.batteries.length)) return nothing;
+    if (!status || (!status.open.length && !status.batteries.length && !status.pickup)) return nothing;
     const { t, locale } = this.ctx;
     const now = new Date();
     const count = status.batteries.length;
@@ -59,6 +64,17 @@ export class AtriumStatusModule extends LitElement {
             </span>
           </button>`,
       )}
+      ${
+        status.pickup
+          ? html`<div class="banner pickup">
+              ${icon(ICONS.trash, 28)}
+              <span class="text">
+                <span class="title">${status.pickup.types.join(" · ")}</span>
+                <span class="sub">${t("waste.put_out")}</span>
+              </span>
+            </div>`
+          : nothing
+      }
       ${
         count
           ? html`<button
@@ -111,7 +127,13 @@ export class AtriumStatusModule extends LitElement {
         background: var(--a-terra);
         color: #fff;
       }
+      .pickup {
+        cursor: default;
+        background: var(--a-ocher);
+        color: var(--a-on-ocher);
+      }
       .battery {
+        box-shadow: inset 0 0 0 1px var(--a-line);
         background: var(--a-s2);
         color: var(--a-text);
       }

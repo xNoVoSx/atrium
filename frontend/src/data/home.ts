@@ -190,3 +190,62 @@ export function lightEntities(hass: HomeAssistant, areaId?: string): string[] {
     .filter((id) => areaId === undefined || areaIdOf(hass, id) === areaId)
     .sort(byAreaThenName(hass));
 }
+
+// ---- waste collection ----
+
+export interface Pickup {
+  /** Local date, YYYY-MM-DD. */
+  date: string;
+  types: string[];
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+function isWasteEntity(hass: HomeAssistant, entityId: string): boolean {
+  const platform = hass.entities[entityId]?.platform;
+  return platform ? platform === "waste_collection_schedule" : entityId.includes("waste_collection_schedule");
+}
+
+/** Local calendar date of a Date, YYYY-MM-DD. */
+export const localDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * Upcoming pickups from the Waste Collection Schedule integration (HACS).
+ * Sensors with the "upcoming" details format carry one attribute per date;
+ * its calendar entities carry the next pickup. Both are merged by date.
+ */
+export function wastePickups(hass: HomeAssistant, today = localDate(new Date())): Pickup[] {
+  const byDate = new Map<string, Set<string>>();
+  const add = (date: string, value: unknown) => {
+    if (date < today) return;
+    const set = byDate.get(date) ?? new Set<string>();
+    for (const type of String(value).split(",")) {
+      const trimmed = type.trim();
+      if (trimmed) set.add(trimmed);
+    }
+    byDate.set(date, set);
+  };
+  for (const id of Object.keys(hass.states)) {
+    if (!isWasteEntity(hass, id) || !isAutoVisible(hass, id)) continue;
+    const s = hass.states[id];
+    if (!s) continue;
+    if (id.startsWith("sensor.")) {
+      for (const [key, value] of Object.entries(s.attributes)) if (DATE_KEY.test(key)) add(key, value);
+    } else if (id.startsWith("calendar.") && typeof s.attributes.start_time === "string") {
+      add(s.attributes.start_time.slice(0, 10), s.attributes.message);
+    }
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, types]) => ({ date, types: [...types] }));
+}
+
+/** Whole days from today to a YYYY-MM-DD date (0 = today). */
+export function daysUntil(date: string, today = localDate(new Date())): number {
+  const utc = (s: string) => {
+    const [y = 0, m = 1, d = 1] = s.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(date) - utc(today)) / 86400000);
+}

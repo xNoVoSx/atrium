@@ -51,4 +51,5 @@ export const ICONS = {
   plus: "M12 5v14M5 12h14",
   thermo: "M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z",
   refresh: "M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5",
+  trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6",
 } as const;

@@ -118,6 +118,7 @@ export class AtriumLightTile extends LitElement {
       background: var(--a-s1);
       color: var(--a-text);
       font-family: var(--a-font);
+      box-shadow: inset 0 0 0 1px var(--a-line);
       transition:
         background-color 220ms ease,
         color 220ms ease,
@@ -134,6 +135,7 @@ export class AtriumLightTile extends LitElement {
     button.on {
       background: var(--a-ocher);
       color: var(--a-on-ocher);
+      box-shadow: none;
     }
     button.unavailable {
       opacity: 0.45;

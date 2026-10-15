@@ -17,7 +17,7 @@ export const tokens = css`
   }
   :host([theme="dark"]) {
     --a-bg: #121416;
-    --a-s1: #1c1f22;
+    --a-s1: #1e2124;
     --a-s2: #25292d;
     --a-s3: #30353a;
     --a-text: #ecedea;
@@ -32,6 +32,7 @@ export const tokens = css`
     --a-nav-line: #25292d;
     --a-on-nav: #a9aeb3;
     --a-terra-text: #e8957a;
+    --a-line: rgba(255, 255, 255, 0.07);
     color-scheme: dark;
   }
   :host([theme="light"]) {
@@ -51,6 +52,7 @@ export const tokens = css`
     --a-nav-line: #1e2022;
     --a-on-nav: #b7bbbf;
     --a-terra-text: #a4533a;
+    --a-line: rgba(30, 32, 34, 0.08);
     color-scheme: light;
   }
 `;

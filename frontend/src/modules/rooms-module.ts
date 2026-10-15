@@ -6,7 +6,7 @@ import { rooms } from "../data/home";
 import { shared } from "../theme/shared";
 import { formatTemperature } from "../util/format";
 
-/** One tile per area: temperature, name, a dot when lights are on. */
+/** One tile per area: its icon (ocher while lights are on), temperature and name. */
 export class AtriumRoomsModule extends LitElement {
   static override properties = {
     ctx: { attribute: false },
@@ -24,6 +24,7 @@ export class AtriumRoomsModule extends LitElement {
     (hass) =>
       rooms(hass).map((r) => ({
         ...r,
+        icon: hass.areas[r.areaId]?.icon ?? null,
         // Rounded here so tiny sensor changes do not re-render the grid.
         temperature: r.temperature === null ? null : Math.round(r.temperature * 2) / 2,
       })),
@@ -59,17 +60,23 @@ export class AtriumRoomsModule extends LitElement {
               }}
             >
               <span class="top">
+                ${
+                  r.icon && customElements.get("ha-icon")
+                    ? html`<ha-icon class="icon ${r.lightsOn ? "lit" : ""}" .icon=${r.icon}></ha-icon>`
+                    : html`<span class="icon"></span>`
+                }
+              </span>
+              <span class="bottom">
                 <span class="temp">${formatTemperature(r.temperature, locale, 1)}</span>
+                <span class="name">${r.name}</span>
                 ${
                   r.lightsOn
-                    ? html`<span
-                        class="dot"
-                        title="${r.lightsOn} ${r.lightsOn === 1 ? t("rooms.light_on") : t("rooms.lights_on")}"
-                      ></span>`
+                    ? html`<span class="sr"
+                        >${r.lightsOn} ${r.lightsOn === 1 ? t("rooms.light_on") : t("rooms.lights_on")}</span
+                      >`
                     : nothing
                 }
               </span>
-              <span class="name">${r.name}</span>
             </a>`,
         )}
       </div>
@@ -101,8 +108,30 @@ export class AtriumRoomsModule extends LitElement {
         padding: 12px;
         border-radius: var(--a-radius);
         background: var(--a-s1);
+        box-shadow: inset 0 0 0 1px var(--a-line);
         color: var(--a-text);
         text-decoration: none;
+        min-width: 0;
+      }
+      .icon {
+        --mdc-icon-size: 26px;
+        color: var(--a-text2);
+        min-height: 26px;
+      }
+      .icon.lit {
+        color: var(--a-ocher);
+      }
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      .bottom {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
         min-width: 0;
       }
       .top {
@@ -114,12 +143,6 @@ export class AtriumRoomsModule extends LitElement {
         font-size: 22px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
-      }
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 4px;
-        background: var(--a-ocher);
       }
       .name {
         font-size: 13px;

@@ -8,6 +8,8 @@ import {
   sceneEntities,
   stepTarget,
   zoneLabel,
+  wastePickups,
+  daysUntil,
 } from "../src/data/home";
 import { homeModules } from "../src/data/layout";
 import { navSection, parseRoute, routePath } from "../src/router";
@@ -109,7 +111,15 @@ describe("scenes", () => {
 
 describe("layout", () => {
   it("uses the default order without settings", () => {
-    expect(homeModules(undefined)).toEqual(["header", "status", "climate", "lights", "scenes", "rooms"]);
+    expect(homeModules(undefined)).toEqual([
+      "header",
+      "status",
+      "climate",
+      "lights",
+      "scenes",
+      "waste",
+      "rooms",
+    ]);
   });
 
   it("applies order and hidden modules, keeping unknown ones out and new ones in", () => {
@@ -119,6 +129,7 @@ describe("layout", () => {
       "status",
       "climate",
       "lights",
+      "waste",
     ]);
   });
 });
@@ -130,5 +141,40 @@ describe("router", () => {
     expect(parseRoute("/room")).toEqual({ page: "rooms" });
     expect(routePath({ page: "room", areaId: "living room" })).toBe("/room/living%20room");
     expect(navSection({ page: "room", areaId: "x" })).toBe("rooms");
+  });
+});
+
+describe("waste collection", () => {
+  const hass = fakeHass({
+    states: {
+      "sensor.wcs_mull": state("sensor.wcs_mull", "Papier in 6 days", {
+        "2026-10-14": "Altes",
+        "2026-10-21": "Papier / Gelber Sack",
+        "2026-10-28": "Bioabfall, Restmüll",
+        friendly_name: "Müll",
+      }),
+      "calendar.wcs": state("calendar.wcs", "off", {
+        message: "Papier / Gelber Sack",
+        start_time: "2026-10-21 00:00:00",
+      }),
+      "sensor.other": state("sensor.other", "1", { "2026-10-20": "not waste" }),
+    },
+    entities: {
+      "sensor.wcs_mull": { entity_id: "sensor.wcs_mull", labels: [], platform: "waste_collection_schedule" },
+      "calendar.wcs": { entity_id: "calendar.wcs", labels: [], platform: "waste_collection_schedule" },
+      "sensor.other": { entity_id: "sensor.other", labels: [], platform: "template" },
+    },
+  });
+
+  it("merges sensor and calendar by date, skips the past and other integrations", () => {
+    expect(wastePickups(hass, "2026-10-15")).toEqual([
+      { date: "2026-10-21", types: ["Papier / Gelber Sack"] },
+      { date: "2026-10-28", types: ["Bioabfall", "Restmüll"] },
+    ]);
+  });
+
+  it("counts days in local dates", () => {
+    expect(daysUntil("2026-10-16", "2026-10-15")).toBe(1);
+    expect(daysUntil("2026-11-01", "2026-10-15")).toBe(17);
   });
 });

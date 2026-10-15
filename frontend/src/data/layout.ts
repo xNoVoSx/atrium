@@ -2,7 +2,7 @@
 // shared layout settings (changed by admins); anything not mentioned there
 // keeps its default place, so new modules appear without migrations.
 
-export const HOME_MODULES = ["header", "status", "climate", "lights", "scenes", "rooms"] as const;
+export const HOME_MODULES = ["header", "status", "climate", "lights", "scenes", "waste", "rooms"] as const;
 export type HomeModule = (typeof HOME_MODULES)[number];
 
 export interface HomeLayout {
