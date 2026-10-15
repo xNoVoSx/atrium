@@ -52,6 +52,7 @@ export class AtriumLightsModule extends LitElement {
           (id) =>
             html`<atrium-light-tile
               ?compact=${this.compact}
+              .areaName=${this.areaId ? this.ctx.store.hass?.areas[this.areaId]?.name : undefined}
               .entityId=${id}
               .store=${store}
               .t=${t}

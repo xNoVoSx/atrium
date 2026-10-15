@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues } from "lit";
 import { EntityController, type EntityStore } from "../data/entity-store";
-import { brightnessPct, friendlyName } from "../data/registry";
+import { brightnessPct, friendlyName, withoutArea } from "../data/registry";
 import type { Translate } from "../i18n";
 import { attachPress } from "../util/press";
 
@@ -21,6 +21,7 @@ export class AtriumLightTile extends LitElement {
   static override properties = {
     entityId: { attribute: "entity-id", reflect: true },
     compact: { type: Boolean, reflect: true },
+    areaName: { attribute: false },
     store: { attribute: false },
     t: { attribute: false },
   };
@@ -28,6 +29,8 @@ export class AtriumLightTile extends LitElement {
   declare entityId: string;
   /** One row (icon, name, state) instead of a square. */
   declare compact: boolean;
+  /** On a room page: the room's name, left out of the light's name. */
+  declare areaName: string | undefined;
   declare store: EntityStore | undefined;
   declare t: Translate;
 
@@ -97,7 +100,7 @@ export class AtriumLightTile extends LitElement {
     >
       ${BULB}
       <span class="text">
-        <span class="name">${friendlyName(s)}</span>
+        <span class="name">${withoutArea(friendlyName(s), this.areaName)}</span>
         <span class="state">${this.#stateLabel()}</span>
       </span>
     </button>`;
