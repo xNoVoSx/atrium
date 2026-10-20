@@ -310,6 +310,8 @@ export class AtriumPanel extends LitElement {
             .t=${ctx.t}
             .locale=${ctx.locale}
             .entityId=${id}
+            .layout=${ctx.layout}
+            .isAdmin=${ctx.isAdmin}
           ></atrium-climate-body>`
         : html`<atrium-light-body .store=${this.store} .t=${ctx.t} .entityId=${id}></atrium-light-body>`;
     return html`<atrium-sheet

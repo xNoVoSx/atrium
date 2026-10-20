@@ -226,7 +226,7 @@ export const settingsStyles = css`
   }
 `;
 
-const toggle = (checked: boolean, onChange: (on: boolean) => void, label: string) =>
+export const toggle = (checked: boolean, onChange: (on: boolean) => void, label: string) =>
   html`<label class="switch" title=${label}>
     <input
       type="checkbox"
@@ -237,7 +237,12 @@ const toggle = (checked: boolean, onChange: (on: boolean) => void, label: string
     <span class="track"></span>
   </label>`;
 
-function moveButtons(t: PanelContext["t"], onMove: (d: -1 | 1) => void, first: boolean, last: boolean) {
+export function moveButtons(
+  t: PanelContext["t"],
+  onMove: (d: -1 | 1) => void,
+  first: boolean,
+  last: boolean,
+) {
   return html`<button
       type="button"
       class="icon"

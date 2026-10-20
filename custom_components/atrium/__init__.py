@@ -26,6 +26,7 @@ from .const import (
     PANEL_URL_PATH,
     STATIC_URL,
 )
+from .guard import HeatingGuard
 from .store import AtriumStore
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -38,6 +39,7 @@ class AtriumData:
     """Runtime data of the loaded entry."""
 
     store: AtriumStore
+    guard: HeatingGuard
     version: str
     frontend_hash: str
 
@@ -73,9 +75,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: AtriumConfigEntry) -> bo
             f"Frontend file {FRONTEND_DIR}/{FRONTEND_FILE} is missing; "
             "install a release or build the frontend"
         ) from err
+    guard = HeatingGuard(hass, store)
     entry.runtime_data = AtriumData(
-        store=store, version=str(integration.version), frontend_hash=frontend_hash
+        store=store, guard=guard, version=str(integration.version), frontend_hash=frontend_hash
     )
+    guard.async_start()
+    entry.async_on_unload(guard.async_stop)
 
     await panel_custom.async_register_panel(
         hass,

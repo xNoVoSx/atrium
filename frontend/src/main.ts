@@ -39,6 +39,9 @@ import { AtriumWidgetEditor } from "./components/widget-editor";
 import { AtriumWidgetPicker } from "./components/widget-picker";
 import { AtriumDataWidget } from "./widgets/elements/data-widget";
 import { AtriumSchedulesWidget } from "./widgets/elements/schedules";
+import { AtriumHeatingProgramWidget } from "./widgets/elements/heating-program";
+import { AtriumScheduleEditor } from "./components/schedule-editor";
+import { AtriumHeatingSettings } from "./pages/heating-settings";
 import { AtriumFloorplanWidget } from "./widgets/elements/floorplan";
 import { AtriumActivityWidget, AtriumEnergyFlowWidget, AtriumRoomCardWidget } from "./widgets/elements/more";
 import {
@@ -122,6 +125,9 @@ export const ELEMENTS: Array<[string, CustomElementConstructor]> = [
   ["atrium-widget-picker", AtriumWidgetPicker],
   ["atrium-data-widget", AtriumDataWidget],
   ["atrium-schedules-widget", AtriumSchedulesWidget],
+  ["atrium-heating-program-widget", AtriumHeatingProgramWidget],
+  ["atrium-schedule-editor", AtriumScheduleEditor],
+  ["atrium-heating-settings", AtriumHeatingSettings],
   ["atrium-floorplan-widget", AtriumFloorplanWidget],
   ["atrium-activity-widget", AtriumActivityWidget],
   ["atrium-room-card-widget", AtriumRoomCardWidget],

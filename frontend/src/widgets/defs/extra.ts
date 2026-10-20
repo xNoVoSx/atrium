@@ -2,6 +2,7 @@
 
 import { html } from "lit";
 import { suggestEnergy } from "../../data/energy";
+import { heatingZones } from "../../data/heating";
 import { mediaPlayers } from "../../data/home";
 
 const energyConfigured = (hass: HomeAssistant) =>
@@ -192,6 +193,20 @@ const RAW: WidgetDef[] = [
         { key: "ratio", label: "wo.ratio", kind: "number", min: 0.5, max: 4 },
       ],
     },
+  ),
+
+  el(
+    "heating-program",
+    (ctx, c, d) =>
+      html`<atrium-heating-program-widget
+        .ctx=${ctx}
+        .config=${c}
+        ?demo=${d}
+      ></atrium-heating-program-widget>`,
+    "comfort",
+    WI.climate,
+    (hass) => heatingZones(hass, undefined).length > 0,
+    { size: "l" },
   ),
 
   el(
@@ -522,6 +537,7 @@ const VARIANTS: Record<string, string[]> = {
   graph: ["curve", "bars", "area"],
   media: ["standard", "compact"],
   schedules: ["week", "today"],
+  "heating-program": ["week", "today", "compact"],
   alarm: ["standard", "compact"],
   energyflow: ["standard", "numbers"],
 };

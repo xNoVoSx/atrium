@@ -10,7 +10,8 @@
     "app": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env android/run.mjs",
     "edit": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env edit.mjs",
     "tour": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env tour.mjs",
-    "designs": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env designs.mjs"
+    "designs": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env designs.mjs",
+    "heating": "PLAYWRIGHT_BROWSERS_PATH=.browsers node --env-file-if-exists=../.env heating.mjs"
   },
   "devDependencies": {
     "playwright": "1.64.1"

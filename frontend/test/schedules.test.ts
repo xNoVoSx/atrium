@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { updatePayload } from "../src/widgets/elements/schedules";
+import { updatePayload } from "../src/data/schedules";
 
 describe("schedule editor", () => {
   it("sends all days, sorted, with seconds and without broken ranges", () => {
@@ -73,12 +73,14 @@ describe("schedules widget", () => {
     expect(root.querySelectorAll(".block").length).toBe(1);
     [...root.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Change")?.click();
     await el.updateComplete;
-    const copy = [...root.querySelectorAll(".erow button")].find(
-      (b) => b.textContent?.trim() === "to all days",
-    ) as HTMLButtonElement;
-    copy.click();
-    await el.updateComplete;
-    [...root.querySelectorAll(".eh button")]
+    const editor = root.querySelector("atrium-schedule-editor") as HTMLElement & {
+      updateComplete: Promise<boolean>;
+    };
+    await editor.updateComplete;
+    const er = editor.shadowRoot as ShadowRoot;
+    (er.querySelector('[data-day="monday"] [data-copy="all"]') as HTMLButtonElement).click();
+    await editor.updateComplete;
+    [...er.querySelectorAll(".eh button")]
       .find((b) => b.textContent?.trim() === "Save")
       ?.dispatchEvent(new MouseEvent("click"));
     await new Promise((r) => setTimeout(r, 0));

@@ -4,52 +4,10 @@
 import { css, html, nothing, type PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { SelectorController } from "../../data/entity-store";
+import { DAYS, endMinutes, minutes, updatePayload, type ScheduleConfig } from "../../data/schedules";
 import type { MessageKey } from "../../i18n";
 import { WidgetBase } from "../base";
 import { widgetStyles } from "../styles";
-
-export const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
-export type Day = (typeof DAYS)[number];
-
-export interface Range {
-  from: string;
-  to: string;
-}
-
-export interface ScheduleConfig extends Partial<Record<Day, Range[]>> {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
-const minutes = (hhmm: string) => {
-  const [h = "0", m = "0"] = hhmm.split(":");
-  return Number(h) * 60 + Number(m);
-};
-
-/** "07:00:00" → "07:00" for time inputs, and back. */
-export const short = (t: string) => t.slice(0, 5);
-export const long = (t: string) => (t.length === 5 ? `${t}:00` : t);
-
-/** The payload for schedule/update: all days, ranges sorted and without empty ones. */
-export function updatePayload(cfg: ScheduleConfig): { type: string; [key: string]: unknown } {
-  const days = Object.fromEntries(
-    DAYS.map((d) => [
-      d,
-      (cfg[d] ?? [])
-        .filter((r) => r.from && r.to && minutes(r.to) > minutes(r.from))
-        .map((r) => ({ from: long(r.from), to: long(r.to) }))
-        .sort((a, b) => minutes(a.from) - minutes(b.from)),
-    ]),
-  );
-  return {
-    type: "schedule/update",
-    schedule_id: cfg.id,
-    name: cfg.name,
-    ...(cfg.icon ? { icon: cfg.icon } : {}),
-    ...days,
-  };
-}
 
 const DEMO: ScheduleConfig[] = [
   {
@@ -134,8 +92,7 @@ export class AtriumSchedulesWidget extends WidgetBase {
     }
   }
 
-  async #save(): Promise<void> {
-    const edit = this._edit;
+  async #save(edit: ScheduleConfig | undefined): Promise<void> {
     if (!edit) return;
     if (this.demo) {
       this._configs = (this._configs ?? []).map((c) => (c.id === edit.id ? edit : c));
@@ -152,15 +109,6 @@ export class AtriumSchedulesWidget extends WidgetBase {
     }
   }
 
-  #setRange(day: Day, i: number, key: keyof Range, value: string): void {
-    if (!this._edit) return;
-    const ranges = [...(this._edit[day] ?? [])];
-    const r = ranges[i];
-    if (!r) return;
-    ranges[i] = { ...r, [key]: value };
-    this._edit = { ...this._edit, [day]: ranges };
-  }
-
   #week(cfg: ScheduleConfig, now: Date) {
     const today = (now.getDay() + 6) % 7;
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -174,7 +122,7 @@ export class AtriumSchedulesWidget extends WidgetBase {
               <span class="track">
                 ${(cfg[d] ?? []).map((r) => {
                   const a = minutes(r.from);
-                  const b = minutes(r.to) || 1440;
+                  const b = endMinutes(r.to);
                   return html`<span
                     class="block"
                     style="left:${(a / 1440) * 100}%;width:${((b - a) / 1440) * 100}%"
@@ -194,65 +142,13 @@ export class AtriumSchedulesWidget extends WidgetBase {
   #editor() {
     const e = this._edit;
     if (!e) return nothing;
-    const { t } = this.ctx;
-    return html`<div class="editor">
-      <div class="eh">
-        <b>${e.name}</b>
-        <button type="button" class="ghost" @click=${() => (this._edit = null)}>${t("w.cancel")}</button>
-        <button type="button" class="primary" ?disabled=${this._saving} @click=${() => void this.#save()}>
-          ${t("w.save")}
-        </button>
-      </div>
-      ${DAYS.map(
-        (d) =>
-          html`<div class="erow">
-            <span class="dn">${t(`day.${d}` as MessageKey)}</span>
-            <div class="ranges">
-              ${(e[d] ?? []).map(
-                (r, i) =>
-                  html`<span class="range">
-                    <input
-                      type="time"
-                      .value=${short(r.from)}
-                      @change=${(ev: Event) => this.#setRange(d, i, "from", (ev.target as HTMLInputElement).value)}
-                      aria-label=${t("w.from")}
-                    />
-                    –
-                    <input
-                      type="time"
-                      .value=${short(r.to)}
-                      @change=${(ev: Event) => this.#setRange(d, i, "to", (ev.target as HTMLInputElement).value)}
-                      aria-label=${t("w.to")}
-                    />
-                    <button
-                      type="button"
-                      class="x"
-                      aria-label=${t("w.remove")}
-                      @click=${() => (this._edit = { ...e, [d]: (e[d] ?? []).filter((_, j) => j !== i) })}
-                    >
-                      ×
-                    </button>
-                  </span>`,
-              )}
-              <button
-                type="button"
-                class="ghost small"
-                @click=${() => (this._edit = { ...e, [d]: [...(e[d] ?? []), { from: "07:00", to: "22:00" }] })}
-              >
-                +
-              </button>
-            </div>
-            <button
-              type="button"
-              class="ghost small"
-              title=${t("w.copy_all")}
-              @click=${() => (this._edit = { ...e, ...Object.fromEntries(DAYS.map((x) => [x, (e[d] ?? []).map((r) => ({ ...r }))])) })}
-            >
-              ${t("w.copy_all")}
-            </button>
-          </div>`,
-      )}
-    </div>`;
+    return html`<atrium-schedule-editor
+      .t=${this.ctx.t}
+      .config=${e}
+      ?saving=${this._saving}
+      @atrium-schedule-cancel=${() => (this._edit = null)}
+      @atrium-schedule-save=${(ev: CustomEvent<ScheduleConfig>) => void this.#save(ev.detail)}
+    ></atrium-schedule-editor>`;
   }
 
   protected override render() {
@@ -390,80 +286,19 @@ export class AtriumSchedulesWidget extends WidgetBase {
         font-size: 10px;
         color: var(--a-text3);
       }
-      .editor {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .eh {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .eh b {
-        flex: 1;
-        font-size: 16px;
-      }
-      .erow {
-        display: grid;
-        grid-template-columns: 28px minmax(0, 1fr) auto;
-        gap: 8px;
-        align-items: center;
-        background: var(--a-s2);
-        border-radius: var(--a-radius);
-        padding: 6px 8px;
-      }
-      .ranges {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        align-items: center;
-      }
-      .range {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: var(--a-s3);
-        border-radius: 6px;
-        padding: 2px 4px;
-      }
-      input[type="time"] {
-        border: 0;
-        background: transparent;
-        color: var(--a-text);
-        font: inherit;
-        font-size: 14px;
-        min-height: 32px;
-      }
-      button.primary,
-      button.ghost,
-      button.x {
+      button.ghost {
         border: 0;
         border-radius: 6px;
         font: inherit;
         font-weight: 600;
         cursor: pointer;
-        min-height: 36px;
-        padding: 0 12px;
-      }
-      .primary {
-        background: var(--a-ocher);
-        color: var(--a-on-ocher);
-      }
-      .ghost {
         background: var(--a-s3);
         color: var(--a-text);
       }
       .small {
-        min-height: 30px !important;
-        padding: 0 10px !important;
+        min-height: 30px;
+        padding: 0 10px;
         font-size: 12px;
-      }
-      .x {
-        background: none;
-        color: var(--a-text2);
-        padding: 0 6px !important;
-        min-height: 28px !important;
       }
       @keyframes grow {
         from {

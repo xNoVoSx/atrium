@@ -5,6 +5,7 @@ import { repeat } from "lit/directives/repeat.js";
 import type { PanelContext } from "../context";
 import { SelectorController, StructureController } from "../data/entity-store";
 import { icon } from "../components/icon";
+import { heatingZones } from "../data/heating";
 import { batteries, climateZones, rooms } from "../data/home";
 import {
   hiddenAreas,
@@ -304,6 +305,15 @@ export class AtriumCategoryPage extends LitElement {
           areas.length
             ? html`<atrium-climate-module .ctx=${this.ctx} .variant=${"tiles"}></atrium-climate-module>`
             : html`<p class="hint">—</p>`
+        }
+        ${
+          heatingZones(hass, this.ctx.layout).length
+            ? html`<atrium-heating-program-widget
+                class="program"
+                .ctx=${this.ctx}
+                .config=${{ id: "category-heating-program", type: "heating-program" }}
+              ></atrium-heating-program-widget>`
+            : nothing
         }`;
     }
     const groups = groupByArea(hass, "light");
@@ -878,6 +888,7 @@ export class AtriumSettingsPage extends LitElement {
           ["rooms", "settings.tab_rooms"],
           ["categories", "settings.tab_categories"],
           ["users", "settings.tab_users"],
+          ["heating", "settings.tab_heating"],
           ["doorbell", "settings.tab_doorbell"],
           ["energy", "settings.tab_energy"],
           ["hidden", "settings.tab_hidden"],
@@ -918,6 +929,7 @@ export class AtriumSettingsPage extends LitElement {
         ${tab === "rooms" ? this.#renderRooms() : nothing}
         ${tab === "categories" ? this.#renderCategories() : nothing}
         ${tab === "users" ? html`<atrium-users-settings .ctx=${this.ctx}></atrium-users-settings>` : nothing}
+        ${tab === "heating" ? html`<atrium-heating-settings .ctx=${this.ctx}></atrium-heating-settings>` : nothing}
         ${tab === "doorbell" ? html`<atrium-doorbell-settings .ctx=${this.ctx}></atrium-doorbell-settings>` : nothing}
         ${tab === "energy" ? html`<atrium-energy-settings .ctx=${this.ctx}></atrium-energy-settings>` : nothing}
         ${tab === "hidden" ? this.#renderHidden() : nothing}
