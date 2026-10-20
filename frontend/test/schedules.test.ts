@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { updatePayload } from "../src/data/schedules";
+import { schedulesByEntity, updatePayload } from "../src/data/schedules";
 
 describe("schedule editor", () => {
   it("sends all days, sorted, with seconds and without broken ranges", () => {
@@ -32,8 +32,28 @@ describe("schedule editor", () => {
   });
 });
 
+describe("schedules by entity", () => {
+  const week = (id: string) => ({ id, name: id, monday: [{ from: "07:00:00", to: "19:00:00" }] });
+
+  it("follow renamed entity IDs through the registry", () => {
+    const map = schedulesByEntity([week("heat"), week("cool")], {
+      "schedule.living_heat": { platform: "schedule", unique_id: "heat" },
+      // took over the old default ID of "cool" but is another helper
+      "schedule.cool": { platform: "schedule", unique_id: "gone" },
+      "schedule.yaml_one": null,
+    });
+    expect(map.get("schedule.living_heat")?.id).toBe("heat");
+    expect(map.has("schedule.cool")).toBe(false);
+    expect(map.has("schedule.yaml_one")).toBe(false);
+  });
+
+  it("fall back to schedule.<id> without registry entries", () => {
+    expect(schedulesByEntity([week("heat")], {}).get("schedule.heat")?.id).toBe("heat");
+  });
+});
+
 describe("schedules widget", () => {
-  it("edits a day and saves through schedule/update", async () => {
+  it("edits a renamed schedule and saves it under its helper id", async () => {
     await import("../src/main");
     const { EntityStore } = await import("../src/data/entity-store");
     const { translator } = await import("../src/i18n");
@@ -44,7 +64,7 @@ describe("schedules widget", () => {
       ...base,
       states: {
         ...base.states,
-        "schedule.heat": state("schedule.heat", "on", {
+        "schedule.living_heat": state("schedule.living_heat", "on", {
           friendly_name: "Heat",
           next_event: "2026-10-15T19:00:00+02:00",
         }),
@@ -53,6 +73,8 @@ describe("schedules widget", () => {
         sent.push(msg);
         if (msg.type === "schedule/list")
           return [{ id: "heat", name: "Heat", monday: [{ from: "07:00:00", to: "19:00:00" }] }] as T;
+        if (msg.type === "config/entity_registry/get_entries")
+          return { "schedule.living_heat": { platform: "schedule", unique_id: "heat" } } as T;
         return null as T;
       },
     };

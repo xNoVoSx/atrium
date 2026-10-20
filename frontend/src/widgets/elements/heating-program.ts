@@ -15,13 +15,18 @@ import {
   levelName,
   levelTemp,
   nextChange,
-  scheduleMap,
   type HeatingZone,
-  type Schedules,
   type Segment,
 } from "../../data/heating";
 import { nameOf } from "../../data/registry";
-import { DAYS, dayIndex, updatePayload, type ScheduleConfig } from "../../data/schedules";
+import {
+  DAYS,
+  dayIndex,
+  loadSchedules,
+  updatePayload,
+  type ScheduleConfig,
+  type Schedules,
+} from "../../data/schedules";
 import type { MessageKey } from "../../i18n";
 import type { HomeAssistant } from "../../types/hass";
 import { ICONS } from "../../theme/shared";
@@ -142,7 +147,7 @@ export class AtriumHeatingProgramWidget extends WidgetBase {
     _saving: { state: true },
     _pending: { state: true },
   };
-  declare _schedules: ScheduleConfig[] | null;
+  declare _schedules: Schedules | null;
   /** Schedule being edited and the heading to show. */
   declare _edit: { config: ScheduleConfig; heading: string } | null;
   declare _saving: boolean;
@@ -191,11 +196,11 @@ export class AtriumHeatingProgramWidget extends WidgetBase {
   }
 
   async #load(): Promise<void> {
+    const hass = this.ctx.store.rawHass;
     try {
-      this._schedules =
-        (await this.ctx.store.hass?.callWS<ScheduleConfig[]>({ type: "schedule/list" })) ?? [];
+      this._schedules = hass ? await loadSchedules(hass) : new Map();
     } catch {
-      this._schedules = []; // weeks unknown: current level only
+      this._schedules = new Map(); // weeks unknown: current level only
     }
   }
 
@@ -243,10 +248,9 @@ export class AtriumHeatingProgramWidget extends WidgetBase {
   }
 
   #openEditor(zone: ZoneView, level: LevelView): void {
-    const id = level.schedule?.slice("schedule.".length);
     const config = this.demo
       ? { id: "demo", name: level.name, monday: [{ from: "06:30", to: "08:00" }] }
-      : this._schedules?.find((c) => c.id === id);
+      : level.schedule && this._schedules?.get(level.schedule);
     if (config) this._edit = { config, heading: `${zone.name} · ${level.name}` };
   }
 
@@ -420,7 +424,7 @@ export class AtriumHeatingProgramWidget extends WidgetBase {
     const { t } = this.ctx;
     const hass = this.ctx.store.hass;
     const now = new Date();
-    const schedules = scheduleMap(this._schedules ?? []);
+    const schedules = this._schedules ?? new Map();
     const zones = this.demo
       ? demoZones(now)
       : hass

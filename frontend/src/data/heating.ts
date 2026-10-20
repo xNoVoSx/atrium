@@ -6,7 +6,7 @@
 // that the integration enforces.
 
 import type { HomeAssistant } from "../types/hass";
-import { DAYS, dayIndex, endMinutes, isOnAt, minutes, type Day, type ScheduleConfig } from "./schedules";
+import { DAYS, dayIndex, endMinutes, isOnAt, minutes, type Day, type Schedules } from "./schedules";
 
 export interface HeatingLevel {
   /** schedule.* that switches this level on; none = applies when no other level does. */
@@ -235,11 +235,6 @@ export function nextChangeFromStates(
   const level = i >= 0 ? i : zone.levels.findIndex((l) => !l.schedule);
   return level === currentLevel(hass, zone) ? null : { at: new Date(at), level };
 }
-
-export type Schedules = Map<string, ScheduleConfig>;
-
-export const scheduleMap = (configs: ScheduleConfig[]): Schedules =>
-  new Map(configs.map((c) => [`schedule.${c.id}`, c]));
 
 /** Level at a minute of a day, from the stored weeks. */
 export function levelAt(zone: HeatingZone, schedules: Schedules, day: Day, minute: number): number {

@@ -9,10 +9,10 @@ import {
   levelName,
   nextChange,
   nextChangeFromStates,
-  scheduleMap,
   setGuard,
   thermostatsFromAutomations,
 } from "../src/data/heating";
+import { schedulesByEntity } from "../src/data/schedules";
 import type { HomeAssistant } from "../src/types/hass";
 import { fakeHass, state } from "./fixtures";
 
@@ -135,10 +135,13 @@ describe("heating zones", () => {
 
   it("draw a day from the stored weeks", () => {
     const kids = zone(house(), "heating_kids");
-    const schedules = scheduleMap([
-      { id: "heating_kids_comforttime", name: "c", monday: [{ from: "15:00:00", to: "19:00:00" }] },
-      { id: "heating_kids_daytime", name: "d", monday: [{ from: "07:00:00", to: "19:00:00" }] },
-    ]);
+    const schedules = schedulesByEntity(
+      [
+        { id: "heating_kids_comforttime", name: "c", monday: [{ from: "15:00:00", to: "19:00:00" }] },
+        { id: "heating_kids_daytime", name: "d", monday: [{ from: "07:00:00", to: "19:00:00" }] },
+      ],
+      {},
+    );
     expect(daySegments(kids, schedules, "monday")).toEqual([
       { from: 0, to: 420, level: 2 },
       { from: 420, to: 900, level: 1 },

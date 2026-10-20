@@ -4,7 +4,16 @@
 import { css, html, nothing, type PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { SelectorController } from "../../data/entity-store";
-import { DAYS, endMinutes, minutes, updatePayload, type ScheduleConfig } from "../../data/schedules";
+import {
+  DAYS,
+  endMinutes,
+  loadSchedules,
+  minutes,
+  schedulesByEntity,
+  updatePayload,
+  type ScheduleConfig,
+  type Schedules,
+} from "../../data/schedules";
 import type { MessageKey } from "../../i18n";
 import { WidgetBase } from "../base";
 import { widgetStyles } from "../styles";
@@ -45,7 +54,8 @@ export class AtriumSchedulesWidget extends WidgetBase {
     _edit: { state: true },
     _saving: { state: true },
   };
-  declare _configs: ScheduleConfig[] | null;
+  /** Stored weeks by entity. */
+  declare _configs: Schedules | null;
   /** Copy being edited. */
   declare _edit: ScheduleConfig | null;
   declare _saving: boolean;
@@ -75,7 +85,7 @@ export class AtriumSchedulesWidget extends WidgetBase {
   protected override willUpdate(changed: PropertyValues<this>): void {
     this.#states.attach();
     if (this.demo) {
-      this._configs ??= DEMO;
+      this._configs ??= schedulesByEntity(DEMO, {});
       return;
     }
     if (!this.#loaded && changed.has("ctx") && this.ctx?.store.hass) {
@@ -85,17 +95,20 @@ export class AtriumSchedulesWidget extends WidgetBase {
   }
 
   async #load(): Promise<void> {
+    const hass = this.ctx.store.rawHass;
     try {
-      this._configs = (await this.ctx.store.hass?.callWS<ScheduleConfig[]>({ type: "schedule/list" })) ?? [];
+      this._configs = hass ? await loadSchedules(hass) : new Map();
     } catch {
-      this._configs = []; // not allowed or no schedules: show states only
+      this._configs = new Map(); // not allowed or no schedules: show states only
     }
   }
 
   async #save(edit: ScheduleConfig | undefined): Promise<void> {
     if (!edit) return;
     if (this.demo) {
-      this._configs = (this._configs ?? []).map((c) => (c.id === edit.id ? edit : c));
+      this._configs = new Map(
+        [...(this._configs ?? [])].map(([entity, c]) => [entity, c.id === edit.id ? edit : c]),
+      );
       this._edit = null;
       return;
     }
@@ -171,7 +184,7 @@ export class AtriumSchedulesWidget extends WidgetBase {
             <p class="empty">${t("w.not_found")}</p>
           </div>`
         : nothing;
-    const configs = this._configs ?? [];
+    const configs = this._configs ?? new Map<string, ScheduleConfig>();
     const now = new Date();
     const time = (iso: string) =>
       iso
@@ -188,7 +201,7 @@ export class AtriumSchedulesWidget extends WidgetBase {
               states,
               (s) => s.id,
               (s) => {
-                const cfg = configs.find((c) => `schedule.${c.id}` === s.id);
+                const cfg = configs.get(s.id);
                 return html`<div class="sched">
                   <div class="sh">
                     <span class="dot ${s.on ? "ok" : ""}"></span>
