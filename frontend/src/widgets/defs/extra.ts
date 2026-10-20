@@ -513,7 +513,7 @@ const VARIANTS: Record<string, string[]> = {
   weather: ["full", "now", "forecast", "big"],
   calendar: ["agenda", "compact"],
   todo: ["standard", "compact"],
-  persons: ["avatars", "list", "chips"],
+  persons: ["avatars", "list", "chips", "zones"],
   clock: ["standard", "analog", "minimal"],
   sun: ["standard", "minimal"],
   notifications: ["standard", "compact"],

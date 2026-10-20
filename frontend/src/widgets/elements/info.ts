@@ -4,8 +4,17 @@
 import { css, html, nothing, svg, type PropertyValues } from "lit";
 import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
+import { icon } from "../../components/icon";
 import { SelectorController } from "../../data/entity-store";
 import { weatherEntity } from "../../data/home";
+import {
+  formatDistance,
+  presenceGroups,
+  presences,
+  type Presence,
+  type PresenceGroup,
+  type PresenceKind,
+} from "../../data/presence";
 import { nameOf } from "../../data/registry";
 import { weatherCondition } from "../../i18n";
 import type { HomeAssistant } from "../../types/hass";
@@ -683,60 +692,114 @@ export class AtriumTodoWidget extends WidgetBase {
 
 // ---- people ----
 
+const PLACE_ICON: Record<PresenceKind, string> = {
+  home: "M3 11l9-7 9 7M5 10v10h14V10",
+  zone: "M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+  away: "M5 12h14M13 6l6 6-6 6",
+  unknown: "M9 9a3 3 0 1 1 4 2.8c-.6.3-1 .9-1 1.6V14M12 18h.01",
+};
+
+const DEMO_PEOPLE: Presence[] = [
+  { id: "a", name: "Anna", picture: "", kind: "home", zone: "zone.home", place: "home", since: "" },
+  { id: "b", name: "Ben", picture: "", kind: "away", place: "not_home", since: "", km: 3.2 },
+  { id: "c", name: "Oma", picture: "", kind: "zone", zone: "zone.work", place: "Arbeit", since: "", km: 12 },
+  { id: "d", name: "Lea", picture: "", kind: "unknown", place: "unknown", since: "" },
+];
+
 export class AtriumPersonsWidget extends WidgetBase {
   #people = new SelectorController(
     this,
     () => this.ctx?.store,
-    (hass) =>
-      visibleIds(hass, ["person"]).map((id) => {
-        const s = hass.states[id];
-        return {
-          id,
-          name: nameOf(hass, id),
-          state: s?.state ?? "",
-          picture: str(s?.attributes.entity_picture),
-          since: s?.last_changed ?? "",
-        };
-      }),
+    (hass) => presences(hass, visibleIds(hass, ["person"])),
   );
 
   protected override willUpdate(): void {
     this.#people.attach();
   }
 
+  #place(p: Presence | PresenceGroup): string {
+    const { t } = this.ctx;
+    if (p.kind === "home") return t("w.at_home");
+    if (p.kind === "away") return t("w.away");
+    if (p.kind === "unknown") return t("w.location_unknown");
+    return p.place;
+  }
+
+  /** "since 10:17 · 3.2 km" – the time of the last change and the distance from home. */
+  #detail(p: Presence): string {
+    const { t, locale } = this.ctx;
+    const parts: string[] = [];
+    if (p.since && p.kind !== "unknown") {
+      const d = new Date(p.since);
+      const days = (Date.now() - d.getTime()) / 86_400_000;
+      const sameDay = d.toDateString() === new Date().toDateString();
+      const time = new Intl.DateTimeFormat(
+        locale,
+        sameDay
+          ? { hour: "2-digit", minute: "2-digit" }
+          : days < 6
+            ? { weekday: "short", hour: "2-digit", minute: "2-digit" }
+            : { day: "numeric", month: "numeric" },
+      ).format(d);
+      parts.push(`${t("w.since")} ${time}`);
+    }
+    if (p.km !== undefined) parts.push(formatDistance(p.km, locale));
+    return parts.join(" · ");
+  }
+
+  #placeIcon(p: Presence | PresenceGroup, size: number) {
+    return p.icon && customElements.get("ha-icon")
+      ? html`<ha-icon .icon=${p.icon} style="--mdc-icon-size:${size}px"></ha-icon>`
+      : icon(PLACE_ICON[p.kind], size, 1.8);
+  }
+
+  #person(p: Presence, withPlace = true) {
+    const detail = this.#detail(p);
+    return html`<button
+      type="button"
+      class="person ${p.kind}"
+      data-person=${p.id}
+      data-kind=${p.kind}
+      title=${[this.#place(p), detail].filter(Boolean).join(" · ")}
+      @click=${() => this.moreInfo(p.id)}
+    >
+      <span class="avatar">
+        ${p.picture ? html`<img src=${p.picture} alt="" />` : html`<span>${p.name.slice(0, 1)}</span>`}
+      </span>
+      <span class="pt">
+        <span class="pn">${p.name}</span>
+        ${withPlace ? html`<span class="ps">${p.kind === "unknown" ? nothing : this.#placeIcon(p, 13)}${this.#place(p)}</span>` : nothing}
+        ${detail ? html`<span class="pd">${detail}</span>` : nothing}
+      </span>
+    </button>`;
+  }
+
   protected override render() {
     if (!this.ctx) return nothing;
     const { t } = this.ctx;
-    const people = this.demo
-      ? [
-          { id: "a", name: "Anna", state: "home", picture: "", since: "" },
-          { id: "b", name: "Ben", state: "not_home", picture: "", since: "" },
-          { id: "c", name: "Oma", state: "Arbeit", picture: "", since: "" },
-        ]
-      : (this.#people.value ?? []);
+    const people = this.demo ? DEMO_PEOPLE : (this.#people.value ?? []);
     if (!people.length)
       return this.ctx.editing ? html`<div class="w missing">${this.renderHead()}</div>` : nothing;
-    const home = people.filter((p) => p.state === "home").length;
+    const home = people.filter((p) => p.kind === "home").length;
     return html`<div class="w">
       ${this.renderHead(`${home} / ${people.length} ${t("w.at_home")}`)}
-      <div class="people">
-        ${people.map(
-          (p) =>
-            html`<button
-              type="button"
-              class="person ${p.state === "home" ? "home" : ""}"
-              @click=${() => this.moreInfo(p.id)}
-            >
-              <span class="avatar">
-                ${p.picture ? html`<img src=${p.picture} alt="" />` : html`<span>${p.name.slice(0, 1)}</span>`}
-              </span>
-              <span class="pn">${p.name}</span>
-              <span class="ps"
-                >${p.state === "home" ? t("w.at_home") : p.state === "not_home" ? t("w.away") : p.state}</span
-              >
-            </button>`,
-        )}
-      </div>
+      ${
+        this.variant === "zones"
+          ? html`<div class="groups">
+              ${presenceGroups(people).map(
+                (g) =>
+                  html`<div class="group ${g.kind}" data-group=${g.key}>
+                    <div class="gh">
+                      <span class="gi">${this.#placeIcon(g, 16)}</span>
+                      <span class="gn">${this.#place(g)}</span>
+                      <span class="gc">${g.people.length}</span>
+                    </div>
+                    <div class="people">${g.people.map((p) => this.#person(p, false))}</div>
+                  </div>`,
+              )}
+            </div>`
+          : html`<div class="people">${people.map((p) => this.#person(p))}</div>`
+      }
     </div>`;
   }
 
@@ -755,9 +818,19 @@ export class AtriumPersonsWidget extends WidgetBase {
         flex-direction: column;
         align-items: center;
         gap: 4px;
-        width: 76px;
+        width: 92px;
+        min-width: 0;
+      }
+      .pt {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+        max-width: 100%;
       }
       .avatar {
+        flex: none;
         width: 56px;
         height: 56px;
         border-radius: 28px;
@@ -769,17 +842,33 @@ export class AtriumPersonsWidget extends WidgetBase {
         font-weight: 600;
         overflow: hidden;
         position: relative;
-        filter: grayscale(1);
-        opacity: 0.65;
-        transition:
-          filter calc(var(--a-motion, 1) * 400ms),
-          opacity calc(var(--a-motion, 1) * 400ms);
+        color: var(--a-text2);
+        transition: box-shadow calc(var(--a-motion, 1) * 400ms);
       }
-      .home .avatar {
+      /* away: muted face, letter stays readable */
+      .avatar img {
+        filter: grayscale(1);
+        opacity: 0.7;
+      }
+      .home .avatar,
+      .zone .avatar {
+        color: var(--a-text);
+      }
+      .home .avatar img,
+      .zone .avatar img {
         filter: none;
         opacity: 1;
+      }
+      .home .avatar {
         box-shadow: 0 0 0 3px var(--a-sage);
         animation: arrive calc(var(--a-motion, 1) * 700ms) ease-out;
+      }
+      .zone .avatar {
+        box-shadow: 0 0 0 3px var(--a-slate);
+      }
+      .unknown .avatar {
+        background: var(--a-s2);
+        box-shadow: inset 0 0 0 1.5px var(--a-s3);
       }
       .avatar img {
         width: 100%;
@@ -789,22 +878,44 @@ export class AtriumPersonsWidget extends WidgetBase {
       .pn {
         font-weight: 600;
         font-size: 14px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .ps {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         font-size: 12px;
-        color: var(--a-text3);
+        color: var(--a-text2);
         text-align: center;
+        max-width: 100%;
+        white-space: nowrap;
+      }
+      .ps svg,
+      .ps ha-icon {
+        flex: none;
+        color: var(--a-text3);
+      }
+      .pd {
+        font-size: 11px;
+        color: var(--a-text2);
+        text-align: center;
+        font-variant-numeric: tabular-nums;
       }
       @keyframes arrive {
         from {
           box-shadow: 0 0 0 10px transparent;
         }
       }
-      :host([variant="list"]) .people {
+      :host([variant="list"]) .people,
+      :host([variant="zones"]) .people {
         flex-direction: column;
         gap: 6px;
       }
-      :host([variant="list"]) .person {
+      :host([variant="list"]) .person,
+      :host([variant="zones"]) .person {
         width: auto;
         flex-direction: row;
         gap: 12px;
@@ -812,13 +923,29 @@ export class AtriumPersonsWidget extends WidgetBase {
         border-radius: var(--a-radius);
         padding: 6px 12px 6px 6px;
       }
-      :host([variant="list"]) .avatar {
+      :host([variant="list"]) .pt,
+      :host([variant="zones"]) .pt {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        column-gap: 10px;
+      }
+      :host([variant="list"]) .pn,
+      :host([variant="zones"]) .pn {
+        grid-row: 1 / 3;
+      }
+      :host([variant="list"]) .ps,
+      :host([variant="list"]) .pd,
+      :host([variant="zones"]) .pd {
+        justify-self: end;
+        text-align: right;
+      }
+      :host([variant="list"]) .avatar,
+      :host([variant="zones"]) .avatar {
         width: 40px;
         height: 40px;
         font-size: 16px;
-      }
-      :host([variant="list"]) .pn {
-        flex: 1;
       }
       :host([variant="chips"]) .people {
         gap: 6px;
@@ -831,13 +958,46 @@ export class AtriumPersonsWidget extends WidgetBase {
         border-radius: 22px;
         padding: 4px 12px 4px 4px;
       }
+      :host([variant="chips"]) .pt {
+        flex-direction: row;
+        gap: 8px;
+      }
       :host([variant="chips"]) .avatar {
         width: 32px;
         height: 32px;
         font-size: 13px;
       }
-      :host([variant="chips"]) .ps {
+      :host([variant="chips"]) .pd {
         display: none;
+      }
+      .groups {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .gh {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--a-text2);
+      }
+      .gi {
+        display: inline-flex;
+        color: var(--a-text3);
+      }
+      .group.home .gi {
+        color: var(--a-sage);
+      }
+      .group.zone .gi {
+        color: var(--a-slate);
+      }
+      .gc {
+        margin-left: auto;
+        font-variant-numeric: tabular-nums;
+        color: var(--a-text3);
       }
     `,
   ];

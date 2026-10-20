@@ -63,7 +63,7 @@ export const widgetStyles = css`
   }
   .head .note {
     font-size: 12px;
-    color: var(--a-text3);
+    color: var(--a-text2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
